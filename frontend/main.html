@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>实训空间 - 数智实训平台</title>
+<link rel="icon" type="image/png" href="/static/img/logo.png"/>
+<script src="https://modao.cc/agent-py/static/source/js/tailwindcss.js"></script>
+<script src="https://modao.cc/agent-py/static/source/js/iconify-icon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+<script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3F3F46; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525B; }
+
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: #3F3F46; }
+        
+        .chat-bubble-ai { border-radius: 2px 16px 16px 16px; }
+        .chat-bubble-user { border-radius: 16px 16px 2px 16px; }
+
+        /* ===== 任务蓝图（HTML 进度条，替代原先的方块字符方案）===== */
+        .bp-wrap { max-width: 94%; }
+        .bp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+        .bp-title { font-size: 12px; color: #a1a1aa; }
+        .bp-count { font-size: 12px; color: #BEF264; font-weight: 700; }
+        .bp-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,.07); overflow: hidden; }
+        .bp-bar > i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg,#BEF264,#A3E635); transition: width .5s cubic-bezier(.4,0,.2,1); }
+        .bp-segs { display: flex; gap: 4px; margin-top: 8px; }
+        .bp-seg { flex: 1 1 0; height: 5px; border-radius: 999px; background: rgba(255,255,255,.10); }
+        .bp-seg.done { background: #BEF264; }
+        .bp-seg.doing { background: #FBBF24; animation: bp-pulse 1.4s ease-in-out infinite; }
+        @keyframes bp-pulse { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+        .bp-now { margin-top: 12px; font-size: 13px; font-weight: 700; color: #fafafa; }
+        .bp-cmd { margin: 6px 0 0; padding: 8px 10px; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.08); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #BEF264; white-space: pre; overflow-x: auto; }
+        .bp-label { font-size: 11px; color: #71717a; margin-top: 10px; }
+        .bp-expect { font-size: 12px; color: #d4d4d8; margin-top: 2px; }
+
+        .terminal-shadow { box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        
+        /* 动画 */
+        .slide-in { transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .slide-in.active { transform: translateX(0); }
+
+        .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+        .collapsible-content.active { max-height: 500px; }
+        .rotate-icon { transition: transform 0.3s; }
+        .rotate-icon.active { transform: rotate(90deg); }
+
+        .resize-handle { width: 4px; background: #27272A; cursor: col-resize; flex-shrink: 0; transition: background 0.2s; position: relative; }
+        .resize-handle:hover, .resize-handle.active { background: #BEF264; }
+        .resize-handle::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 2px; height: 24px; background: #52525B; border-radius: 1px; }
+        .resize-handle:hover::after, .resize-handle.active::after { background: #fff; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 h-screen overflow-hidden flex flex-col">
+<!-- 1. 顶部导航栏 -->
+<header class="h-[56px] bg-zinc-950/80 backdrop-blur-xl border-b border-white/10 flex-none flex items-center justify-between px-4 z-30">
+<div class="flex items-center gap-2">
+<a class="p-1.5 text-zinc-500 hover:text-lime-300 hover:bg-white/10 rounded-lg transition-colors" href="hub.html" title="返回章节列表">
+<iconify-icon class="text-lg" icon="lucide:arrow-left"></iconify-icon>
+</a>
+<a class="flex items-center gap-2" href="main.html">
+<img src="/static/img/logo.png" alt="数智实训平台" class="h-8 w-8 rounded">
+<span class="font-bold text-zinc-50 text-lg tracking-tight">数智实训平台</span>
+</a>
+<div class="h-4 w-[1px] bg-white/10 mx-1"></div>
+<div class="text-sm text-zinc-400 font-medium" id="course-name-display">加载中...</div>
+</div>
+<div class="flex items-center gap-4">
+<!-- 搜索 -->
+<div class="hidden lg:flex items-center bg-white/5 px-3 py-1.5 rounded-full border border-white/10 focus-within:border-lime-400/60 focus-within:bg-white/10 transition-all">
+<iconify-icon class="text-zinc-500 mr-2" icon="lucide:search"></iconify-icon>
+<input class="bg-transparent text-sm outline-none w-48 text-zinc-100 placeholder-zinc-500" placeholder="搜索知识点..." type="text"/>
+<span class="text-[10px] bg-white/10 border border-white/10 text-zinc-500 px-1 rounded ml-2">⌘K</span>
+</div>
+<!-- 按钮组 -->
+<div class="relative">
+<button class="p-2 text-zinc-400 hover:bg-white/10 rounded-lg transition-colors" onclick="event.stopPropagation();toggleSettings()">
+<iconify-icon class="text-xl" icon="lucide:settings"></iconify-icon>
+</button>
+<div class="hidden absolute right-0 mt-2 w-52 bg-zinc-900 rounded-xl shadow-xl border border-white/10 py-2 z-50" id="settings-popover">
+    <div class="px-4 py-2 border-b border-white/10">
+        <span class="text-xs font-semibold text-zinc-200">偏好设置</span>
+    </div>
+    <div class="px-4 py-2 flex items-center gap-2">
+        <span class="text-xs text-zinc-400 flex-1">字体大小</span>
+        <button onclick="adjustFontSize(-1)" class="w-6 h-6 rounded bg-white/10 hover:bg-white/15 text-zinc-300 text-[11px]">A-</button>
+        <button onclick="adjustFontSize(0)" class="w-6 h-6 rounded bg-white/10 hover:bg-white/15 text-zinc-300 text-[9px]">默认</button>
+        <button onclick="adjustFontSize(1)" class="w-6 h-6 rounded bg-white/10 hover:bg-white/15 text-zinc-300 text-[13px]">A+</button>
+    </div>
+    <a class="flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5 cursor-pointer" onclick="toggleSettings();document.getElementById('help-modal').classList.remove('hidden')">
+        <iconify-icon icon="lucide:help-circle"></iconify-icon> 帮助中心
+    </a>
+    <a class="flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5 cursor-pointer" onclick="toggleSettings();document.getElementById('about-modal').classList.remove('hidden')">
+        <iconify-icon icon="lucide:info"></iconify-icon> 关于我们
+    </a>
+    <div class="h-[1px] bg-white/10 my-1"></div>
+    <a class="flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5" href="profile.html">
+        <iconify-icon icon="lucide:user-circle"></iconify-icon> 个人信息
+    </a>
+    <a class="flex items-center gap-3 px-4 py-2 text-sm text-rose-400 hover:bg-rose-500/10 cursor-pointer" onclick="API.logout()">
+        <iconify-icon icon="lucide:log-out"></iconify-icon> 退出登录
+    </a>
+</div>
+</div>
+<!-- 全局点击关闭 -->
+<script>document.addEventListener('click',function(e){var p=document.getElementById('settings-popover');if(p&&!p.classList.contains('hidden')&&!e.target.closest('#settings-popover')&&!e.target.closest('[onclick*=\"toggleSettings\"]')){p.classList.add('hidden')}})</script>
+<!-- 用户中心 -->
+<div class="relative ml-2">
+<button class="flex items-center gap-2 p-1 pl-1 pr-2 hover:bg-white/5 rounded-full border border-white/10 transition-all" id="user-menu-btn" onclick="toggleUserMenu()">
+<img alt="User" class="w-7 h-7 rounded-full object-cover border border-lime-400/30" src="https://modao.cc/agent-py/media/generated_images/2026-06-26/a8854783ac184603b89311d2a4851970.jpg"/>
+<span class="text-sm font-medium text-zinc-300" id="display-username">学生</span>
+<iconify-icon class="text-zinc-500 text-xs" icon="lucide:chevron-down"></iconify-icon>
+</button>
+<!-- 下拉菜单 -->
+<div class="hidden absolute right-0 mt-2 w-48 bg-zinc-900 rounded-xl shadow-xl border border-white/10 py-2 z-50" id="user-menu">
+<a class="flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5" href="profile.html">
+<iconify-icon icon="lucide:user-circle"></iconify-icon> 个人信息
+                    </a>
+<a class="flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5 cursor-pointer" onclick="showMyReports(); toggleUserMenu();">
+<iconify-icon icon="lucide:file-bar-chart"></iconify-icon> 我的报告
+                    </a>
+<div class="h-[1px] bg-white/10 my-1"></div>
+<a class="flex items-center gap-3 px-4 py-2 text-sm text-rose-400 hover:bg-rose-500/10 cursor-pointer" onclick="API.logout()">
+<iconify-icon icon="lucide:log-out"></iconify-icon> 退出登录
+                    </a>
+</div>
+</div>
+</div>
+</header>
+<div class="flex-1 flex overflow-hidden">
+<!-- 2. 左侧边栏 -->
+<aside class="w-[200px] bg-zinc-900 text-zinc-300 flex flex-col flex-none z-20 shadow-xl">
+<!-- 顶部用户信息 -->
+<div class="p-6 border-b border-white/10">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-10 h-10 rounded-xl bg-lime-400/15 flex items-center justify-center text-lime-300">
+<iconify-icon class="text-2xl" icon="lucide:user"></iconify-icon>
+</div>
+<div>
+<div class="text-white font-semibold text-sm" id="sidebar-username">学生</div>
+<div class="text-xs text-zinc-500">基础版会员</div>
+</div>
+</div>
+<div class="bg-white/5 rounded-lg p-3">
+<div class="flex justify-between text-[11px] mb-1">
+<span class="text-zinc-400">本课程耗时</span>
+<span class="text-lime-300" id="training-hours">0 分钟</span>
+</div>
+<div class="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+<div class="h-full bg-lime-400 transition-all duration-500" id="training-bar" style="width:0%"></div>
+</div>
+</div>
+</div>
+<!-- 项目列表 -->
+<nav class="flex-1 overflow-y-auto sidebar-scroll p-4 space-y-2" id="sidebar-nav">
+    <!-- 动态生成了任务列表 -->
+    <div class="text-zinc-500 text-xs text-center py-8" id="sidebar-loading">
+        <iconify-icon icon="lucide:loader" class="animate-spin"></iconify-icon> 加载任务...
+    </div>
+    <div class="hidden text-zinc-500 text-xs text-center py-8" id="sidebar-empty">暂无任务数据</div>
+</nav>
+<!-- 课程数据文件 -->
+<div class="border-t border-white/10 p-4" id="sidebar-files">
+    <div class="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-semibold">课程数据文件</div>
+    <div class="text-zinc-500 text-[11px]" id="sidebar-file-list">加载中...</div>
+    <button onclick="resetCourseProgress()" class="w-full mt-3 text-[11px] text-zinc-400 hover:text-amber-400 border border-white/10 rounded-lg py-1.5 transition-colors">↻ 重新开始本课程</button>
+</div>
+<!-- 底部进度圆环 -->
+<div class="p-6 border-t border-white/10 bg-zinc-950/40">
+<div class="flex items-center gap-4">
+<div class="relative w-12 h-12 flex items-center justify-center">
+<svg class="w-full h-full -rotate-90">
+<circle cx="24" cy="24" fill="transparent" r="20" stroke="#3F3F46" stroke-width="4"></circle>
+<circle cx="24" cy="24" fill="transparent" r="20" stroke="#BEF264" stroke-dasharray="125.6" stroke-dashoffset="125.6" stroke-width="4" id="progress-circle"></circle>
+</svg>
+<span class="absolute text-[10px] font-bold text-white" id="progress-percent">0%</span>
+</div>
+<div>
+<div class="text-[11px] text-zinc-500 uppercase tracking-wider">当前总进度</div>
+<div class="text-sm font-semibold text-zinc-200" id="progress-task-count">任务 0 / 0</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- 3. 右侧主内容区域 -->
+<main class="flex-1 flex flex-col overflow-hidden relative">
+<!-- 数据挂载路径横幅 -->
+<div class="bg-lime-400/5 border-b border-lime-400/20 px-5 py-2 flex items-center gap-3 flex-none" id="data-banner">
+    <div class="flex items-center gap-1.5 text-lime-300 flex-none">
+        <iconify-icon icon="lucide:folder-open" class="text-sm"></iconify-icon>
+        <span class="text-xs font-bold">本课数据</span>
+    </div>
+    <div class="flex-1 flex items-center gap-2 min-w-0 overflow-hidden">
+        <span class="text-[11px] text-zinc-500 mono truncate" id="data-banner-path">/home/learner/course-data/</span>
+        <span class="text-[11px] text-zinc-400 truncate" id="data-banner-files">加载中...</span>
+        <span class="text-[10px] text-zinc-400">| 安装包: <span class="mono text-zinc-500">/home/learner/packages/</span></span>
+    </div>
+    <button class="flex items-center gap-1 text-[11px] rounded-full bg-lime-400 text-zinc-950 px-2.5 py-1 hover:bg-lime-300 transition-colors flex-none" onclick="copyCpCommand()" title="复制 cp 命令到剪贴板">
+        <iconify-icon icon="lucide:copy" class="text-[11px]" style="pointer-events:none"></iconify-icon>
+        <span>复制 cp 命令</span>
+    </button>
+</div>
+<!-- 内容区 -->
+<div class="flex-1 flex overflow-hidden">
+<!-- 智能体对话区 -->
+<section class="flex-1 flex flex-col bg-zinc-950" id="chat-panel">
+<!-- 进度仪表盘（仅对话区上方） -->
+<div class="bg-zinc-950 border-b border-white/10 px-5 py-3 flex-none">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2">
+<span class="bg-lime-400/10 text-lime-300 text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider" id="dash-step-label">Step 0</span>
+<h2 class="font-semibold text-zinc-50 text-sm" id="dash-task-name">尚未选择任务</h2>
+</div>
+<div class="text-xs text-zinc-500">耗时: <span class="mono text-zinc-300 font-medium" id="dash-elapsed">00:00:00</span></div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex-1 flex gap-1 h-1" id="dash-progress-bar">
+</div>
+<span class="text-xs text-zinc-500 mono font-bold" id="dash-progress-pct">0%</span>
+</div>
+</div>
+<div class="flex-none px-6 py-3 bg-zinc-900/50 border-b border-white/10 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+<span class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">数智实训平台 AI Agent</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="text-zinc-500 hover:text-lime-300 flex items-center gap-1 text-xs transition-colors" onclick="showChatHistory()" title="查看当前子任务的历史对话">
+<iconify-icon icon="lucide:history"></iconify-icon> 历史对话
+</button>
+<button class="text-zinc-500 hover:text-zinc-200 flex items-center gap-1 text-xs" onclick="clearCurrentChat()" title="清空当前子任务聊天">
+<iconify-icon icon="lucide:trash-2"></iconify-icon> 清空
+</button>
+</div>
+</div>
+<!-- 消息列表 -->
+<div class="flex-1 overflow-y-auto p-6 space-y-6" id="chat-messages">
+</div>
+<!-- 底部输入框 -->
+<div class="flex-none p-4 border-t border-white/10 bg-zinc-950">
+<div class="flex flex-wrap gap-2 mb-3">
+<button class="rounded-full bg-lime-400 text-zinc-950 text-xs font-semibold px-4 py-2 flex items-center gap-2 transition-all shadow-sm" id="complete-btn" onclick="completeAndNext(this)">
+<iconify-icon icon="lucide:check-circle" style="pointer-events:none"></iconify-icon> 完成，点击下一步
+</button>
+<button class="rounded-full border border-white/15 bg-white/5 text-zinc-200 hover:border-lime-400/40 hover:text-lime-300 text-xs font-semibold px-4 py-2 flex items-center gap-2 transition-all" onclick="toggleKnowledge(true)">
+<iconify-icon icon="lucide:book-open" style="pointer-events:none"></iconify-icon> 📖 不了解任务知识
+</button>
+<div class="hidden items-center gap-2 text-xs text-lime-300 font-medium" id="task-status">
+<iconify-icon icon="lucide:loader" class="animate-spin"></iconify-icon> 任务进行中...
+</div>
+</div>
+<div class="relative flex items-end gap-2 bg-zinc-900 border border-white/10 rounded-xl p-2 focus-within:ring-2 focus-within:ring-lime-400/20 focus-within:border-lime-400/60 transition-all">
+<textarea class="flex-1 bg-transparent border-none outline-none text-sm p-2 resize-none max-h-32 text-zinc-100 placeholder-zinc-500" id="chat-input" placeholder="@数智实训平台 有问题尽管问我..." rows="1"></textarea>
+<button class="rounded-full bg-lime-400 text-zinc-950 p-2 hover:bg-lime-300 transition-colors shadow-md flex-none" id="chat-send-btn" onclick="sendChatMessage()">
+<iconify-icon class="text-lg" icon="lucide:send" style="pointer-events:none"></iconify-icon>
+</button>
+</div>
+</div>
+</section>
+<!-- 拖拽分隔条 -->
+<div class="resize-handle" id="resize-handle"></div>
+<!-- 在线终端区域 -->
+<section class="flex-1 flex flex-col bg-[#0D1117] relative" id="terminal-panel">
+<!-- 终端标题栏 -->
+<div class="flex-none bg-[#161B22] border-b border-[#30363D] flex items-center justify-between px-4 py-2">
+<div class="flex items-center gap-3">
+<div class="flex gap-1.5">
+<div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+<div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+<div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+</div>
+<div class="h-4 w-[1px] bg-zinc-700 mx-1"></div>
+<div class="flex items-center gap-2 px-3 py-1 bg-[#0D1117] rounded-t-lg border-x border-t border-[#30363D] relative -bottom-[9px]" id="term-tab-label">
+<iconify-icon class="text-cyan-400 text-sm" icon="lucide:terminal"></iconify-icon>
+<span class="text-xs text-zinc-300 font-medium cursor-pointer hover:text-white" id="term-tab-name" onclick="toggleTermList(event)">bash — 实训终端 ▾</span>
+<button class="p-0.5 text-zinc-500 hover:text-white hover:bg-zinc-700 rounded ml-1" onclick="event.stopPropagation();addVMTerm()" title="添加虚拟机终端">
+<iconify-icon icon="lucide:plus" class="text-[10px]" style="pointer-events:none"></iconify-icon>
+</button>
+<!-- 下拉列表 -->
+<div class="absolute top-full left-0 mt-1 bg-[#161B22] border border-[#30363D] rounded-lg shadow-xl py-1 z-50 min-w-[180px] hidden" id="term-dropdown"></div>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-0.5 text-zinc-500 hover:text-white rounded" onclick="copyTermText()" title="复制">
+<iconify-icon icon="lucide:copy" class="text-xs"></iconify-icon>
+</button>
+</div>
+</div>
+<!-- 终端内容 -->
+<div class="flex-1 overflow-hidden relative">
+<!-- VM 连接表单 -->
+<div class="absolute inset-0 flex items-center justify-center bg-[#0D1117] z-10" id="vm-connect-form">
+<div class="bg-[#161B22] border border-[#30363D] rounded-xl p-6 w-[360px] shadow-2xl">
+<div class="flex items-center gap-2 mb-4">
+<iconify-icon class="text-cyan-400 text-lg" icon="lucide:server"></iconify-icon>
+<span class="text-white font-semibold text-sm">连接虚拟机</span>
+</div>
+<div class="space-y-3">
+<div>
+<label class="text-xs text-zinc-400 mb-1 block">虚拟机 IP 地址</label>
+<input class="w-full bg-[#0D1117] border border-[#30363D] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-lime-400/60 focus:outline-none" id="vm-host" placeholder="192.168.1.100" value="">
+</div>
+<div>
+<label class="text-xs text-zinc-400 mb-1 block">SSH 用户名</label>
+<input class="w-full bg-[#0D1117] border border-[#30363D] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-lime-400/60 focus:outline-none" id="vm-user" placeholder="root" value="">
+</div>
+<div>
+<label class="text-xs text-zinc-400 mb-1 block">SSH 密码</label>
+<input class="w-full bg-[#0D1117] border border-[#30363D] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-lime-400/60 focus:outline-none" id="vm-password" type="password" placeholder="····">
+</div>
+<button class="w-full rounded-full bg-lime-400 text-zinc-950 hover:bg-lime-300 rounded-lg py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2" id="vm-connect-btn" onclick="connectVM()">
+<iconify-icon icon="lucide:plug-zap"></iconify-icon> 连接终端
+</button>
+<p class="text-[10px] text-zinc-600 text-center" id="vm-connect-msg"></p>
+</div>
+</div>
+</div>
+<!-- xterm 容器 -->
+<div class="h-full" id="terminal-container"></div>
+</div>
+<!-- 状态遮罩 -->
+<div class="hidden absolute bottom-3 right-3 bg-lime-400 text-zinc-950 text-[10px] px-3 py-1 rounded-full shadow-lg border border-lime-300 flex items-center gap-2" id="terminal-status-overlay">
+<span class="w-1.5 h-1.5 bg-zinc-950 rounded-full animate-ping"></span>
+<span id="term-conn-status">已连接</span>
+</div>
+</section>
+</div><!-- /内容区 -->
+<!-- 3.3 知识讲解弹窗 -->
+<div class="slide-in absolute top-0 right-0 w-[400px] h-full bg-zinc-900 shadow-2xl z-40 flex flex-col border-l border-white/10" id="knowledge-panel">
+<div class="flex-none p-6 border-b border-white/10 flex items-center justify-between bg-zinc-900/60">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-lime-400/10 flex items-center justify-center text-lime-300">
+<iconify-icon icon="lucide:book-open"></iconify-icon>
+</div>
+<h3 class="font-bold text-zinc-50">📖 知识点讲解</h3>
+</div>
+<button class="text-zinc-500 hover:text-zinc-200 hover:rotate-90 transition-all" onclick="toggleKnowledge(false)">
+<iconify-icon class="text-2xl" icon="lucide:x"></iconify-icon>
+</button>
+</div>
+<div class="flex-1 flex flex-col overflow-hidden">
+<div class="flex-1 overflow-y-auto p-5 space-y-4" id="knowledge-messages">
+</div>
+<div class="flex-none p-4 border-t border-white/10 bg-zinc-900">
+<div class="flex items-end gap-2">
+<textarea class="flex-1 bg-zinc-900 border border-white/10 rounded-xl text-sm p-2.5 outline-none focus:border-lime-400/60 text-zinc-100 placeholder-zinc-500 resize-none max-h-24" id="knowledge-input" placeholder="这里无限追问知识点..." rows="1" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+<button class="rounded-full bg-lime-400 text-zinc-950 p-2.5 hover:bg-lime-300 flex-none" id="kn-btn" onclick="askKnowledge()">
+<iconify-icon class="text-lg" icon="lucide:send" style="pointer-events:none"></iconify-icon>
+</button>
+</div>
+</div>
+<div class="flex-none p-6 bg-zinc-900 border-t border-white/10">
+<button class="w-full rounded-full border border-white/15 bg-white/5 text-zinc-300 font-semibold py-3 hover:bg-white/10 transition-all flex items-center justify-center gap-2" onclick="toggleKnowledge(false)">
+<iconify-icon icon="lucide:arrow-left"></iconify-icon> ✕ 返回实训
+                    </button>
+</div>
+</div>
+</main>
+</div>
+<script src="static/js/api.js"></script>
+<script>
+// ============================================================
+// 初始化
+// ============================================================
+var courseId = (new URLSearchParams(window.location.search)).get('course_id');
+if (!courseId) {
+    alert('请从章节页面选择课程进入');
+    window.location.href = 'hub.html';
+}
+var subtasks = [];          // [{id, name, command, expected_output, knowledge_text}]
+var currentSubtaskIdx = 0;
+var subStatuses = {};       // {subtask_id: 'pending'|'in_progress'|'completed'}
+var taskHistories = {};
+var sessionStartTime = 0;     // 由后端 API 设置
+var sessionTimer = null;    // 计时器句柄
+var courseName = '';        // 课程名称（用于弹窗标题等）
+var courseFiles = [];       // 课程数据文件列表
+
+// 实训时长追踪（从后端获取，localStorage 兜底，按课程隔离）
+function _trainingStorageKey() { return 'dt_training_seconds_' + courseId; }
+function initTrainingHours() {
+    return API.getTrainingTime(courseId).then(function(d) {
+        var total = d.total_seconds || 0;
+        localStorage.setItem(_trainingStorageKey(), total);
+        updateTrainingDisplay(total);
+        // 当前有进行中子任务 → 记录开始时间
+        if (d.current_started_at) {
+            sessionStartTime = new Date(d.current_started_at).getTime();
+        } else {
+            sessionStartTime = 0;
+        }
+        // 数据就绪后才启动计时器
+        startElapsedTimer();
+        setInterval(tickTrainingHours, 60000);
+    }).catch(function() {
+        var total = parseInt(localStorage.getItem(_trainingStorageKey()) || '0');
+        updateTrainingDisplay(total);
+        startElapsedTimer();
+        setInterval(tickTrainingHours, 60000);
+    });
+}
+function updateTrainingDisplay(total) {
+    var el = document.getElementById('training-hours');
+    var bar = document.getElementById('training-bar');
+    var minutes = (total / 60).toFixed(1);
+    if (el) el.innerText = minutes + ' 分钟';
+    if (bar) bar.style.width = Math.min((total / (600 * 60)) * 100, 100) + '%';
+}
+
+function tickTrainingHours() {
+    var total = parseInt(localStorage.getItem(_trainingStorageKey()) || '0');
+    total += 60;
+    localStorage.setItem(_trainingStorageKey(), total);
+    updateTrainingDisplay(total);
+    API.getTrainingTime(courseId).then(function(){}).catch(function(){});
+}
+
+// 耗时计时器
+function startElapsedTimer() {
+    if (sessionTimer) clearInterval(sessionTimer);
+    if (!sessionStartTime) sessionStartTime = Date.now();
+    sessionTimer = setInterval(function() {
+        var elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+        var h = Math.floor(elapsed / 3600);
+        var m = Math.floor((elapsed % 3600) / 60);
+        var s = elapsed % 60;
+        var el = document.getElementById('dash-elapsed');
+        if (el) el.innerText = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    }, 1000);
+}
+
+// 更新仪表盘进度条
+function updateDashboardProgress() {
+    var done = Object.values(subStatuses).filter(function(s) { return s === 'completed'; }).length;
+    var inProgress = Object.values(subStatuses).filter(function(s) { return s === 'in_progress'; }).length;
+    var total = subtasks.length;
+    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    // Step label
+    var stepEl = document.getElementById('dash-step-label');
+    if (stepEl) stepEl.innerText = 'Step ' + (currentSubtaskIdx + 1);
+
+    // Task name
+    var nameEl = document.getElementById('dash-task-name');
+    if (nameEl && subtasks[currentSubtaskIdx]) {
+        nameEl.innerText = subtasks[currentSubtaskIdx].name;
+    }
+
+    // Progress bar blocks
+    var bar = document.getElementById('dash-progress-bar');
+    if (bar && total > 0) {
+        var html = '';
+        for (var i = 0; i < total; i++) {
+            var sid = subtasks[i].id;
+            var status = subStatuses[sid] || 'pending';
+            if (status === 'completed') {
+                html += '<div class="flex-1 bg-emerald-400 rounded-full"></div>';
+            } else if (status === 'in_progress') {
+                html += '<div class="flex-1 bg-lime-400 rounded-full animate-pulse"></div>';
+            } else {
+                html += '<div class="flex-1 bg-zinc-700 rounded-full"></div>';
+            }
+        }
+        bar.innerHTML = html;
+    }
+
+    // Percentage
+    var pctEl = document.getElementById('dash-progress-pct');
+    if (pctEl) pctEl.innerText = pct + '%';
+}
+
+var SYSTEM_PROMPT_BASE = '你是数智实训平台，运行在实训平台网页中的AI副驾。学生看到三栏布局：左侧任务列表、中间对话区、右侧在线终端。核心信条：不动手学不会。理论仅解释现象。统一规则：确认即推进——学生贴出版本号、说安装好跑通，只回复进度条+完成宣告+下一指令≤三句。绝对禁止百科输出。任务锁定禁止跳其它技术栈。首条格式：已完成 x/共 y 个任务→任务名→路线→产出→当前子任务→指令全在一段。禁止使用方块符号或制表符画进度（字体会渲染成豆腐块，进度由界面进度条展示）。禁止分两段、禁止客套、禁止代码块。行动优先首句必为可执行指令。边做边讲≤3句。代码给骨架，卡住两次给完整代码。判定完成时在回复末尾输出[SUBTASK_COMPLETE]。\n\n【工作目录硬约束】学生终端启动时已自动 cd 到 /home/learner/datatutor/student_{id}_vm{n}/ （{id}=数据库用户id，{n}=虚拟机编号0/1/2...）。这是唯一可写工作目录。绝对禁止：cd /opt、/usr、/etc、/var、/root 等系统目录做文件操作（learner 无写权限必报 Permission denied）。所有 wget/tar/git clone/curl -o/vi/cp/mv/重定向 > 都必须在当前工作目录执行。如确实要装到 /opt，先在工作目录下载解压，再用 sudo mv（不推荐）。规则：先 pwd 看当前位置，写文件路径全部相对当前目录或 ~/datatutor/student_*/ 开头。';
+
+// === 课程文件下载 ===
+async function loadCourseFilesForStudent() {
+    var list = document.getElementById('sidebar-file-list');
+    if (!courseId) { list.innerText = '无'; return; }
+    try {
+        var data = await API.listCourseFiles(courseId);
+        courseFiles = (data.files || []);
+        updateDataBanner();
+        if (courseFiles.length > 0) {
+            var html = '';
+            courseFiles.forEach(function(f) {
+                html += '<div class="flex items-center justify-between mb-1 hover:bg-white/5 rounded px-1 py-0.5">' +
+                    '<span class="truncate mr-1 text-zinc-300">📄 ' + f.filename + '</span>' +
+                    '<button class="text-lime-300 hover:text-lime-200 text-[10px] flex-none" onclick="API.downloadCourseFile(\'' + courseId + '\',\'' + f.filename + '\')">下载</button>' +
+                    '</div>';
+            });
+            list.innerHTML = html;
+        } else {
+            list.innerHTML = '<span class="text-zinc-500">无</span>';
+        }
+    } catch(e) {
+        list.innerText = '加载失败';
+    }
+}
+
+// === 数据横幅更新 ===
+function updateDataBanner() {
+    var pathEl = document.getElementById('data-banner-path');
+    var filesEl = document.getElementById('data-banner-files');
+    if (!pathEl || !filesEl) return;
+    var path = '/home/learner/course-data/' + (courseId || '') + '/';
+    pathEl.textContent = path;
+    if (courseFiles.length > 0) {
+        var names = courseFiles.map(function(f) { return f.filename; }).join(', ');
+        filesEl.textContent = names;
+    } else {
+        filesEl.textContent = '暂无数据文件';
+    }
+}
+
+// === 复制 cp 命令 ===
+function copyCpCommand() {
+    var path = '/home/learner/course-data/' + (courseId || '') + '/';
+    var cmd = 'cp ' + path + '* .';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cmd).then(function() {
+            toast('已复制: ' + cmd, 'success');
+        }).catch(function() {
+            toast('复制失败，请手动复制: ' + cmd, 'warn');
+        });
+    } else {
+        // 降级方案
+        var ta = document.createElement('textarea');
+        ta.value = cmd;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); toast('已复制: ' + cmd, 'success'); }
+        catch(e) { toast('复制失败，请手动复制: ' + cmd, 'warn'); }
+        document.body.removeChild(ta);
+    }
+}
+
+(function init() {
+    var user = API.getCurrentUser();
+    if (user) {
+        var name = user.display_name || user.username;
+        window._datatutor_userId = user.id;
+        var dn = document.getElementById('display-username');
+        var sn = document.getElementById('sidebar-username');
+        if (dn) dn.innerText = name;
+        if (sn) sn.innerText = name;
+    }
+    initTrainingHours();
+    loadMainData();
+    loadCourseFilesForStudent();
+    setInterval(function() { loadMainData(); }, 5000);
+})();
+
+// ============================================================
+// 数据加载
+// ============================================================
+async function loadMainData() {
+    try {
+        // 获取课程 + 子任务
+        var subtaskData = await API.getSubtasks(courseId);
+        if (subtaskData.name) {
+            courseName = subtaskData.name;
+            var el = document.getElementById('course-name-display');
+            if (el) el.innerText = subtaskData.name;
+            // 更新仪表盘任务名
+            var dn = document.getElementById('dash-task-name');
+            if (dn) dn.innerText = subtaskData.name;
+            // 更新报告弹窗标题
+            var rt = document.getElementById('report-modal-title');
+            if (rt) rt.innerText = courseName + ' - 实训报告';
+            updateDataBanner();
+        }
+        subtasks = subtaskData.subtasks || [];
+
+        // 获取进度
+        try {
+            var progressData = await API.getProgress(courseId);
+            currentSubtaskIdx = progressData.current_subtask_index || 0;
+            subStatuses = progressData.subtask_statuses || {};
+        } catch(e) { subStatuses = {}; /* 进度暂不可用，不阻断自动开始（2026-08-28） */ }
+        // 进入课程即开始：第一个未完成任务若 pending 自动 start（2026-08-26；8/27 会话防重；8/28 移出 try 防 getProgress 失败漏触发）
+        var _autoKey = 'dt_auto_start_' + courseId;
+        if (!sessionStorage.getItem(_autoKey)) {
+            for (var ai = 0; ai < subtasks.length; ai++) {
+                var ast = subtasks[ai];
+                if (subStatuses[ast.id] !== 'completed') {
+                    if (subStatuses[ast.id] !== 'in_progress') {
+                        API.startSubtask(ast.id).then(function() { loadMainData(); }).catch(function(){});
+                        sessionStorage.setItem(_autoKey, '1');
+                    }
+                    break;
+                }
+            }
+        }
+
+        var loading = document.getElementById('sidebar-loading');
+        if (loading) loading.classList.add('hidden');
+
+        if (!subtasks.length) {
+            var empty = document.getElementById('sidebar-empty');
+            if (empty) empty.classList.remove('hidden');
+            return;
+        }
+
+        buildSidebar();
+        updateProgress();
+        // 对话记忆体仅在首次加载时初始化，避免定时轮询重置聊天
+        if (!window._dataLoaded) { window._dataLoaded = true;
+        var doneCount = 0;
+        subtasks.forEach(function(s) { if (subStatuses[s.id] === 'completed') doneCount++; });
+        var totalCount = subtasks.length;
+        subtasks.forEach(function(st) {
+            var subtaskList = '';
+            subtasks.forEach(function(s, i) {
+                var done = (subStatuses[s.id] === 'completed');
+                // 纯文本标记，不用方块字符（字体缺码位会渲染成豆腐块）
+                var marker = done ? '[已完成]' : (subStatuses[s.id] === 'in_progress' ? '[进行中]' : '[未开始]');
+                subtaskList += (i + 1) + '. ' + marker + ' ' + s.name + '\n';
+            });
+            var progressLine = '已完成 ' + doneCount + '/' + totalCount + ' 个子任务';
+            var wd = '/home/learner/datatutor/student_' + (window._datatutor_userId || 1) + '_vm0';
+            var fixPath = function(s) { return (s||'').replace(/\/opt\b/g, wd).replace(/\/opt\//g, wd+'/'); };
+            var sysContent = SYSTEM_PROMPT_BASE
+                + '\n所有子任务：\n' + subtaskList.trim()
+                + '\n进度：' + progressLine
+                + '\n当前子任务：' + st.name
+                + '\n操作指令：' + fixPath(st.command || '')
+                + '\n预期产出：' + fixPath(st.expected_output || '')
+                + '\n知识点：' + (st.knowledge_text || '');
+            taskHistories[st.id] = [{ role: 'system', content: sysContent }];
+        });
+        } // end if (!_dataLoaded)
+
+        // 加载当前子任务历史对话（仅首次）
+        if (subtasks[currentSubtaskIdx] && !window._subtaskSwitched) {
+            window._subtaskSwitched = true;
+            switchSubtask(currentSubtaskIdx);
+        }
+    } catch(e) {
+        var loading = document.getElementById('sidebar-loading');
+        if (loading) { loading.classList.remove('hidden'); loading.innerHTML = '<span class="text-rose-400">加载失败: ' + htmlEscape(e.message) + '</span>'; }
+    }
+}
+
+// ============================================================
+// 侧边栏
+// ============================================================
+function buildSidebar() {
+    var nav = document.getElementById('sidebar-nav');
+    var html = '';
+    subtasks.forEach(function(st, i) {
+        var status = subStatuses[st.id] || 'pending';
+        var done = status === 'completed';
+        var active = i === currentSubtaskIdx && !done;
+        var aClass = active ? 'text-lime-300 font-medium bg-lime-400/10'
+                   : done ? 'text-zinc-400 hover:text-zinc-200'
+                   : 'text-zinc-500 hover:text-zinc-300';
+        var icon = done ? 'lucide:check-circle'
+                 : status === 'in_progress' ? 'lucide:loader'
+                 : 'lucide:circle';
+        var iconClass = done ? 'text-emerald-400'
+                      : status === 'in_progress' ? 'text-lime-300'
+                      : 'text-zinc-600';
+        html += '<a class="flex items-center gap-2 p-2 text-xs rounded-lg transition-colors cursor-pointer ' + aClass + '" data-subtask="' + i + '" onclick="switchSubtask(' + i + ')">';
+        html += '<iconify-icon class="' + iconClass + '" icon="' + icon + '" style="pointer-events:none"></iconify-icon> ';
+        html += htmlEscape(st.name);
+        html += '</a>';
+    });
+    nav.innerHTML = html;
+}
+
+function updateProgress() {
+    var done = Object.values(subStatuses).filter(function(s) { return s === 'completed'; }).length;
+    var total = subtasks.length;
+    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    var el1 = document.getElementById('progress-percent');
+    var el2 = document.getElementById('progress-text');
+    var circ = document.getElementById('progress-circle');
+    var cnt = document.getElementById('progress-task-count');
+    if (el1) el1.innerText = pct + '%';
+    if (el2) el2.innerText = pct + '%';
+    if (cnt) cnt.innerText = '任务 ' + done + ' / ' + total;
+    if (circ) {
+        var circum = 125.6;
+        var offset = circum * (1 - pct / 100);
+        circ.setAttribute('stroke-dashoffset', offset);
+    }
+    updateDashboardProgress();
+    // 全部完成：显示生成报告按钮
+    var reportBtn = document.getElementById('generate-report-btn');
+    if (done > 0 && done === total) {
+        if (!reportBtn) {
+            var container = document.getElementById('chat-messages');
+            if (container) {
+                var div = document.createElement('div');
+                div.className = 'text-center py-4';
+                div.innerHTML = '<button id="generate-report-btn" class="rounded-full bg-lime-400 text-zinc-950 px-4 py-2 text-sm font-bold hover:bg-lime-300 flex items-center gap-2 mx-auto shadow-lg shadow-lime-400/20 animate-pulse" onclick="generateReport()"><iconify-icon icon="lucide:award"></iconify-icon> 完成全部任务，生成实训报告</button>';
+                container.appendChild(div);
+            }
+        }
+    } else {
+        if (reportBtn) reportBtn.remove();
+    }
+}
+
+async function switchSubtask(idx) {
+    currentSubtaskIdx = idx;
+    // 已完成任务隐藏"完成"按钮，防重复完成（2026-08-28）
+    var btn = document.getElementById('complete-btn');
+    var stNow = subtasks[idx];
+    var isDone = stNow && subStatuses[stNow.id] === 'completed';
+    if (btn) btn.style.display = isDone ? 'none' : '';
+    knowledgeInited = false;  // 切换子任务时重置知识面板记忆体
+    knowledgeHistory = [];
+    var km = document.getElementById('knowledge-messages');
+    if (km) km.innerHTML = '';  // 清空旧消息
+    buildSidebar();
+    updateProgress();
+
+    var st = subtasks[idx];
+    if (!st) return;
+    var container = document.getElementById('chat-messages');
+    container.innerHTML = '';
+
+    // 从后端加载历史（重置记忆体防止重复）
+    if (taskHistories[st.id] && taskHistories[st.id].length > 0 && taskHistories[st.id][0].role === 'system') {
+        taskHistories[st.id] = [taskHistories[st.id][0]];  // 只保留 system prompt
+    } else {
+        taskHistories[st.id] = [];
+    }
+    try {
+        var hist = await API.getChatHistory(st.id);
+        if (hist && hist.messages) {
+            hist.messages.forEach(function(m) {
+                if (m.role === 'system') return;
+                appendChatEl(m.role, m.content);
+            });
+            if (!taskHistories[st.id]) taskHistories[st.id] = [];
+            hist.messages.forEach(function(m) {
+                taskHistories[st.id].push(m);
+            });
+        }
+    } catch(e) { /* 历史不可用 */ }
+
+    if (!taskHistories[st.id] || taskHistories[st.id].length === 0) {
+        // 构建完整子任务列表（喂给 AI 的提示词用纯文本标记，不用方块字符）
+        var subtaskList = '';
+        var doneCount = 0;
+        subtasks.forEach(function(s, i) {
+            var status = subStatuses[s.id];
+            var done = (status === 'completed');
+            if (done) doneCount++;
+            // 不用方块字符画进度：等宽字体缺该码位，会渲染成豆腐块
+            var marker = done ? '[已完成]' : (status === 'in_progress' ? '[进行中]' : '[未开始]');
+            subtaskList += (i + 1) + '. ' + marker + ' ' + s.name + '\n';
+        });
+        var totalCount = subtasks.length;
+        var fullSubtaskInfo = '所有子任务：\n' + subtaskList.trim()
+            + '\n进度：已完成 ' + doneCount + '/' + totalCount + ' 个子任务'
+            + '\n当前子任务：' + st.name
+            + '\n操作指令：' + (st.command || '')
+            + '\n预期产出：' + (st.expected_output || '')
+            + '\n知识点：' + (st.knowledge_text || '');
+        taskHistories[st.id] = [{ role: 'system', content: SYSTEM_PROMPT_BASE + fullSubtaskInfo }];
+    }
+
+    // 主动输出任务蓝图
+    showTaskBlueprint(st);
+}
+
+// 生成并展示任务全景蓝图（HTML 进度条版，替代原先的方块字符方案）
+function showTaskBlueprint(st) {
+    var container = document.getElementById('chat-messages');
+    if (!container || container.children.length > 0) return;   // 仅首次进入、无历史时渲染
+    container.appendChild(buildBlueprintEl(st));
+    container.scrollTop = container.scrollHeight;
+}
+
+function bpEsc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function bpStatusOf(st, idxOfCurrent) {
+    if (subStatuses[st.id] === 'completed') return 'done';
+    if (subStatuses[st.id] === 'in_progress' || idxOfCurrent >= 0) return 'doing';
+    return 'todo';
+}
+
+function buildBlueprintEl(st) {
+    var total = subtasks.length;
+    var done = 0, curIdx = -1;
+    subtasks.forEach(function (s, i) {
+        if (subStatuses[s.id] === 'completed') done++;
+        if (s.id === st.id) curIdx = i;
+    });
+    var pct = total ? Math.round(done * 100 / total) : 0;
+
+    var segs = subtasks.map(function (s) {
+        var cls = bpStatusOf(s, s.id === st.id ? curIdx : -1);
+        var tip = bpEsc(s.name) + '（' + (cls === 'done' ? '已完成' : cls === 'doing' ? '进行中' : '未开始') + '）';
+        return '<span class="bp-seg ' + (cls === 'todo' ? '' : cls) + '" title="' + tip + '"></span>';
+    }).join('');
+
+    var rest = total - done;
+    var wrap = document.createElement('div');
+    wrap.className = 'flex gap-4';
+    wrap.innerHTML =
+        '<div class="w-8 h-8 rounded-lg bg-lime-400/15 flex-none flex items-center justify-center text-lime-300">' +
+            '<iconify-icon icon="lucide:bot"></iconify-icon></div>' +
+        '<div class="flex-1">' +
+            '<div class="chat-bubble-ai bg-zinc-900 border border-white/10 p-3 text-sm text-zinc-300 leading-relaxed bp-wrap">' +
+                '<div class="bp-head">' +
+                    '<span class="bp-title">任务全景</span>' +
+                    '<span class="bp-count">已完成 ' + done + ' / ' + total + '　' +
+                        (rest > 0 ? '还剩 ' + rest + ' 步' : '全部完成') + '</span>' +
+                '</div>' +
+                '<div class="bp-bar"><i style="width:' + pct + '%"></i></div>' +
+                '<div class="bp-segs">' + segs + '</div>' +
+                '<div class="bp-now">当前子任务：' + bpEsc(st.name) + '</div>' +
+                (st.command ? '<div class="bp-label">操作指令</div><pre class="bp-cmd">' + bpEsc(st.command) + '</pre>' : '') +
+                (st.expected_output ? '<div class="bp-label">预期产出</div><div class="bp-expect">' + bpEsc(st.expected_output) + '</div>' : '') +
+            '</div>' +
+        '</div>';
+    return wrap;
+}
+
+// ============================================================
+// 安全工具
+// ============================================================
+function htmlEscape(str) {
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(str));
+    return d.innerHTML;
+}
+
+// ============================================================
+// AI 对话
+// ============================================================
+function appendChatEl(role, content) {
+    var container = document.getElementById('chat-messages');
+    var div = document.createElement('div');
+    if (role === 'user') {
+        div.className = 'flex gap-4 flex-row-reverse';
+        div.innerHTML = '<div class="w-8 h-8 rounded-lg bg-zinc-800 flex-none flex items-center justify-center text-zinc-400"><iconify-icon icon="lucide:user"></iconify-icon></div><div class="flex-1 flex flex-col items-end"><div class="chat-bubble-user bg-lime-400 p-3 text-sm text-zinc-950 leading-relaxed max-w-[90%]">'+htmlEscape(content)+'</div></div>';
+    } else {
+        div.className = 'flex gap-4';
+        var html = (typeof marked !== 'undefined' && marked.parse) ? marked.parse(content) : htmlEscape(content);
+        div.innerHTML = '<div class="w-8 h-8 rounded-lg bg-lime-400/15 flex-none flex items-center justify-center text-lime-300"><iconify-icon icon="lucide:bot"></iconify-icon></div><div class="flex-1"><div class="chat-bubble-ai bg-zinc-900 border border-white/10 p-3 text-sm text-zinc-300 leading-relaxed max-w-[90%] whitespace-pre-wrap">'+html+'</div></div>';
+    }
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+function sendChatMessage() {
+    var input = document.getElementById('chat-input');
+    var msg = input.value.trim();
+    if (!msg) return;
+    input.value = ''; input.style.height = 'auto';
+
+    var st = subtasks[currentSubtaskIdx];
+    if (!st) return;
+
+    appendChatEl('user', msg);
+    if (!taskHistories[st.id]) taskHistories[st.id] = [];
+    taskHistories[st.id].push({ role: 'user', content: msg });
+    API.saveChatMessage(st.id, 'user', msg).catch(function(){});
+
+    var btn = document.getElementById('chat-send-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<iconify-icon icon="lucide:loader" class="animate-spin text-lg"></iconify-icon>';
+
+    API.aiChat(taskHistories[st.id].slice(-20), courseId).then(function(data) {
+        var reply = data.reply || '模型未响应';
+        // 去掉 AI 可能输出的完成标记（不再自动完成，由按钮控制）
+        reply = reply.replace(/\[SUBTASK_COMPLETE\]/g, '');
+        taskHistories[st.id].push({ role: 'assistant', content: reply });
+        appendChatEl('ai', reply);
+        API.saveChatMessage(st.id, 'assistant', reply).catch(function(){});
+    }).catch(function(e) {
+        appendChatEl('ai', '⚠️ 请求失败：' + e.message);
+    }).finally(function() {
+        btn.disabled = false;
+        btn.innerHTML = '<iconify-icon class="text-lg" icon="lucide:send"></iconify-icon>';
+    });
+}
+
+async function markSubtaskComplete(st) {
+    try {
+        await API.completeSubtask(st.id);
+        subStatuses[st.id] = 'completed';
+        buildSidebar();
+        updateProgress();
+        var subtaskData = await API.getSubtasks(courseId);
+        subtasks = subtaskData.subtasks || [];
+        // 不再自动跳转，用户点击"完成，点击下一步"按钮来推进
+    } catch(e) { /* ignore */ }
+}
+
+// ============================================================
+// 用户菜单
+// ============================================================
+function toggleUserMenu() {
+    document.getElementById('user-menu').classList.toggle('hidden');
+}
+window.addEventListener('click', function(e) {
+    var btn = document.getElementById('user-menu-btn');
+    var menu = document.getElementById('user-menu');
+    if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+        menu.classList.add('hidden');
+    }
+});
+
+// 聊天输入
+(function() {
+    var ci = document.getElementById('chat-input');
+    if (ci) {
+        ci.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; });
+        ci.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } });
+    }
+})();
+
+// ============================================================
+// 完成当前子任务 → 跳下一步
+// ============================================================
+async function completeAndNext(btn) {
+    var st = subtasks[currentSubtaskIdx];
+    if (!st) return;
+
+    // 确认弹窗：警告未完成进入下一阶段会导致评分过低
+    showConfirmModal('若未完成子任务进入下一阶段，将会导致评分过低', function() {
+        _completeAndNextProceed(btn);
+    });
+}
+
+async function _completeAndNextProceed(btn) {
+    var st = subtasks[currentSubtaskIdx];
+    if (!st) return;
+
+    btn.disabled = true;
+    btn.querySelector('iconify-icon').setAttribute('icon', 'lucide:loader');
+    btn.querySelector('iconify-icon').classList.add('animate-spin');
+
+    var resetBtn = function() {
+        btn.disabled = false;
+        btn.querySelector('iconify-icon').setAttribute('icon', 'lucide:check-circle');
+        btn.querySelector('iconify-icon').classList.remove('animate-spin');
+    };
+
+    try {
+        // 标记当前子任务完成
+        await API.completeSubtask(st.id);
+        subStatuses[st.id] = 'completed';
+
+        var nextIdx = currentSubtaskIdx + 1;
+        if (nextIdx < subtasks.length) {
+            // 有下一个子任务 → 跳转并标记为进行中
+            var nextSt = subtasks[nextIdx];
+            await API.startSubtask(nextSt.id);
+            subStatuses[nextSt.id] = 'in_progress';
+            switchSubtask(nextIdx);
+            resetBtn();
+        } else {
+            // 所有子任务完成
+            buildSidebar();
+            updateProgress();
+            var container = document.getElementById('chat-messages');
+            container.innerHTML = '<div class="text-center py-12"><div class="text-4xl mb-3">🎉</div><p class="text-zinc-300 font-semibold">恭喜！所有子任务已完成！</p><p class="text-xs text-zinc-500 mt-1">可以在左侧选择任务复习或返回课程列表</p></div>';
+            btn.style.display = 'none';
+        }
+    } catch (e) {
+        // 恢复按钮
+        resetBtn();
+        console.error('操作失败:', e);
+    }
+}
+
+// ============================================================
+// xterm.js 终端 (Socket.IO)
+var term = null, fitAddon = null, termSocket = null, vmConnected = false;
+var currentUserId = (API.getCurrentUser() || {}).id || 1;
+function setupTermSocket(){
+if(typeof io==='undefined')return false;if(termSocket)return true;
+termSocket=io();
+// 统一输出路由（按 session_id 分发）
+termSocket.on('terminal_output',function(d){
+var sid=parseInt(d.session_id)||0;
+if(sid===0&&term){term.write(d.output);return;}
+var et=extraTerms.find(function(t){return t.id===sid;});
+if(et&&et.term)et.term.write(d.output)});
+termSocket.on('terminal_connected',function(d){
+var sid=parseInt(d.session_id)||0;
+vmConnected=true;clearTimeout(window._vmTimeout);
+if(sid===0){vmConnected=true;document.getElementById('vm-connect-form').classList.add('hidden');}
+else{var et=extraTerms.find(function(t){return t.id===sid;});if(et){et.connected=true;if(activeTermIdx===extraTerms.indexOf(et)+1)document.getElementById('vm-connect-form').classList.add('hidden');if(et.fit)et.fit.fit()}}
+document.getElementById('term-conn-status').textContent=d.message||'已连接';
+document.getElementById('terminal-status-overlay').classList.remove('hidden');
+renderTermTabs()});
+termSocket.on('terminal_error',function(d){
+clearTimeout(window._vmTimeout);
+var sid=parseInt(d.session_id)||0;
+if(sid===0){if(term)term.write('\r\n\x1b[31m'+(d.message||'连接失败')+'\x1b[0m\r\n');vmConnected=false}
+else{var et=extraTerms.find(function(t){return t.id===sid;});if(et){et.connected=false;if(et.term)et.term.write('\r\n\x1b[31m'+(d.message||'连接失败')+'\x1b[0m\r\n')}}
+document.getElementById('vm-connect-form').classList.remove('hidden');
+var b=document.getElementById('vm-connect-btn');b.disabled=false;
+b.innerHTML='<iconify-icon icon="lucide:plug-zap"></iconify-icon> 连接终端';
+document.getElementById('vm-connect-msg').textContent=d.message||'连接失败';
+document.getElementById('vm-connect-msg').className='text-[10px] text-rose-400 text-center';
+renderTermTabs()});
+// 容器回收/重建提示（课程全部完成后后端会推送）
+termSocket.on('terminal_notice',function(d){
+var msg=d.message||'';if(!msg)return;
+appendChatEl('ai','ℹ️ '+msg);
+try{showToast&&showToast(msg,'info')}catch(e){}
+});
+termSocket.on('terminal_disconnected',function(d){
+var sid=parseInt(d.session_id)||0;
+if(sid===0){if(term)term.write('\r\n\x1b[33m终端已断开\x1b[0m\r\n');vmConnected=false}
+else{var et=extraTerms.find(function(t){return t.id===sid;});if(et){et.connected=false;if(et.term)et.term.write('\r\n\x1b[33m终端已断开\x1b[0m\r\n')}}
+document.getElementById('vm-connect-form').classList.remove('hidden');
+renderTermTabs()});
+return true}
+function loadVMCreds(){var h=document.getElementById('vm-host');var u=document.getElementById('vm-user');var p=document.getElementById('vm-password');if(h)h.value=localStorage.getItem('dt_vm_host')||'';if(u)u.value=localStorage.getItem('dt_vm_user')||'';if(p)p.value=localStorage.getItem('dt_vm_pass')||''}
+function connectVM(){var host=document.getElementById('vm-host').value.trim();var user=document.getElementById('vm-user').value.trim();var pwd=document.getElementById('vm-password').value;var msg=document.getElementById('vm-connect-msg');var btn=document.getElementById('vm-connect-btn');var userInfo=API.getCurrentUser()||{};var isStudent=userInfo.role==='student';if(!host&&!isStudent&&!user){msg.textContent='请填写完整的连接信息';msg.className='text-[10px] text-rose-400 text-center';return}if(!isStudent){localStorage.setItem('dt_vm_host',host);localStorage.setItem('dt_vm_user',user);localStorage.setItem('dt_vm_pass',pwd)}btn.disabled=true;btn.innerHTML='<iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon> 连接中...';msg.textContent='';msg.className='text-[10px] text-zinc-500 text-center';setupTermSocket();var uid=userInfo.id||1;termSocket.emit('terminal_connect',{student_id:uid,session_id:0,host:isStudent?'':host,user:isStudent?'':user,password:isStudent?'':pwd,cols:(term&&term.cols)||80,rows:(term&&term.rows)||24,course_id:courseId||null});clearTimeout(window._vmTimeout);window._vmTimeout=setTimeout(function(){if(!vmConnected&&btn.disabled){btn.disabled=false;btn.innerHTML='<iconify-icon icon="lucide:plug-zap"></iconify-icon> 连接终端';msg.textContent='连接超时，请检查 VM 地址和端口是否可达';msg.className='text-[10px] text-rose-400 text-center'}},15000)}
+function copyTermText(){if(term){var s=term.getSelection();if(s)navigator.clipboard.writeText(s).catch(function(){})}}
+function initTerminal(){if(typeof Terminal==='undefined')return;var c=document.getElementById('terminal-container');if(!c)return;term=new Terminal({cursorBlink:true,fontSize:14,fontFamily:"'JetBrains Mono','Cascadia Code',monospace",theme:{background:'#0D1117',foreground:'#E6EDF3',cursor:'#BEF264',selectionBackground:'#264f78',black:'#484F58',red:'#FF7B72',green:'#3FB950',yellow:'#D29922',blue:'#58A6FF',magenta:'#BC8CFF',cyan:'#39C5CF',white:'#B1BAC4'}});if(typeof FitAddon!=='undefined'){fitAddon=new FitAddon.FitAddon();term.loadAddon(fitAddon)}if(typeof WebLinksAddon!=='undefined'){term.loadAddon(new WebLinksAddon.WebLinksAddon())}term.open(c);if(fitAddon){fitAddon.fit();window.addEventListener('resize',function(){fitAddon.fit()})}loadVMCreds();setupTermSocket();var userInfo=API.getCurrentUser()||{};var uid=userInfo.id||1;term.onData(function(d){if(termSocket)termSocket.emit('terminal_input',{student_id:uid,session_id:0,command:d})});term.onResize(function(s){if(termSocket)termSocket.emit('terminal_resize',{student_id:uid,session_id:0,cols:s.cols,rows:s.rows})});if(userInfo.role==='student'){document.getElementById('vm-connect-form').classList.add('hidden');connectVM()}}
+setTimeout(initTerminal,800);
+
+// —— 多 VM 终端（增量） ——
+var extraTerms = [];  // [{id, name, host, user, pass, term, fit, connected, el}]
+var activeTermIdx = 0;
+var nextTermId = 1;
+
+function renderTermTabs() {
+    var nameEl = document.getElementById('term-tab-name');
+    var current = activeTermIdx === 0 ? 'bash — 实训终端 ▾' : ((extraTerms[activeTermIdx - 1] || {}).name || 'VM') + ' ▾';
+    if (nameEl) nameEl.innerText = current;
+    // 渲染下拉列表
+    var dd = document.getElementById('term-dropdown');
+    if (!dd) return;
+    var html = '';
+    // 主终端
+    var active0 = activeTermIdx === 0 ? 'bg-zinc-700 text-white' : 'text-zinc-300 hover:bg-zinc-700';
+    html += '<div class="flex items-center justify-between px-3 py-1.5 text-xs cursor-pointer ' + active0 + '" onclick="switchToTerm(0);toggleTermList()">'
+        + '<span><span class="w-1.5 h-1.5 rounded-full inline-block mr-1.5 ' + (vmConnected ? 'bg-emerald-400' : 'bg-zinc-500') + '"></span>主终端 — bash</span>'
+        + '</div>';
+    // 额外 VM
+    extraTerms.forEach(function(t, i) {
+        var idx = i + 1;
+        var active = activeTermIdx === idx ? 'bg-zinc-700 text-white' : 'text-zinc-300 hover:bg-zinc-700';
+        html += '<div class="flex items-center justify-between px-3 py-1.5 text-xs cursor-pointer ' + active + '" onclick="switchToTerm(' + idx + ');toggleTermList()">'
+            + '<span><span class="w-1.5 h-1.5 rounded-full inline-block mr-1.5 ' + (t.connected ? 'bg-emerald-400' : 'bg-zinc-500') + '"></span>' + t.name + '</span>'
+            + '<button class="text-zinc-500 hover:text-rose-400" onclick="event.stopPropagation();closeTermTab(' + idx + ')" title="关闭">'
+            + '<iconify-icon icon="lucide:x" class="text-[10px]"></iconify-icon></button>'
+            + '</div>';
+    });
+    dd.innerHTML = html;
+}
+
+function toggleTermList(e) {
+    if (e) e.stopPropagation();
+    var dd = document.getElementById('term-dropdown');
+    if (!dd) return;
+    dd.classList.toggle('hidden');
+}
+
+// 点击空白关闭下拉
+document.addEventListener('click', function(e) {
+    var dd = document.getElementById('term-dropdown');
+    var label = document.getElementById('term-tab-label');
+    if (dd && !dd.classList.contains('hidden') && !label.contains(e.target)) {
+        dd.classList.add('hidden');
+    }
+});
+
+function addVMTerm() {
+    var id = nextTermId++;
+    var name = 'VM-' + id;
+    var t = { id: id, name: name, host: '', user: 'root', pass: '', term: null, fit: null, connected: false, el: null };
+    extraTerms.push(t);
+
+    var wrap = document.getElementById('terminal-container').parentNode;
+    var box = document.createElement('div');
+    box.className = 'h-full';
+    box.style.display = 'none';
+    box.id = 'extra-term-' + id;
+    wrap.appendChild(box);
+    t.el = box;
+
+    switchToTerm(extraTerms.length); // 切到新 tab
+    document.getElementById('term-dropdown').classList.add('hidden'); // 关下拉
+}
+
+function switchToTerm(idx) {
+    if (activeTermIdx === 0) {
+        document.getElementById('terminal-container').style.display = 'none';
+    } else {
+        var ct = extraTerms[activeTermIdx - 1];
+        if (ct && ct.el) ct.el.style.display = 'none';
+    }
+    activeTermIdx = idx;
+    if (idx === 0) {
+        document.getElementById('terminal-container').style.display = '';
+    } else {
+        var t = extraTerms[idx - 1];
+        if (t && t.el) t.el.style.display = '';
+    }
+    renderTermTabs();
+    // 重置连接表单
+    var btn = document.getElementById('vm-connect-btn');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<iconify-icon icon="lucide:plug-zap"></iconify-icon> 连接终端'; }
+    document.getElementById('vm-connect-msg').textContent = '';
+    document.getElementById('vm-connect-msg').className = 'text-[10px] text-zinc-400 text-center';
+    if (idx > 0) {
+        var t = extraTerms[idx - 1];
+        if (t && !t.connected) {
+            document.getElementById('vm-connect-form').classList.remove('hidden');
+            document.getElementById('vm-host').value = t.host || '';
+            document.getElementById('vm-user').value = t.user || 'root';
+            document.getElementById('vm-password').value = t.pass || '';
+        }
+    } else if (!vmConnected) {
+        document.getElementById('vm-connect-form').classList.remove('hidden');
+    }
+}
+
+function closeTermTab(idx) {
+    if (idx === 0) return; // 不能关主终端
+    var t = extraTerms[idx - 1];
+    if (!t) return;
+    if (t.connected && termSocket) {
+        termSocket.emit('terminal_disconnect', { student_id: getUserId(), session_id: t.id });
+    }
+    if (t.term) t.term.dispose();
+    if (t.el) t.el.remove();
+    extraTerms.splice(idx - 1, 1);
+    if (activeTermIdx >= idx) activeTermIdx = Math.max(0, activeTermIdx - 1);
+    switchToTerm(activeTermIdx);
+    renderTermTabs();
+}
+
+// 重写 connectVM 以支持多 tab
+var _origConnectVM = connectVM;
+connectVM = function() {
+    if (activeTermIdx === 0) {
+        return _origConnectVM();
+    }
+    // 连接额外 VM
+    var t = extraTerms[activeTermIdx - 1];
+    if (!t) return;
+    t.host = document.getElementById('vm-host').value.trim();
+    t.user = document.getElementById('vm-user').value.trim();
+    t.pass = document.getElementById('vm-password').value;
+    if (!t.host || !t.pass) {
+        document.getElementById('vm-connect-msg').textContent = '请填写完整信息';
+        document.getElementById('vm-connect-msg').className = 'text-[10px] text-rose-400 text-center';
+        return;
+    }
+    var btn = document.getElementById('vm-connect-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<iconify-icon icon="lucide:loader-2" class="animate-spin"></iconify-icon> 连接中...';
+
+    if (!termSocket) setupTermSocket();
+
+    // 创建 xterm
+    if (t.term) t.term.dispose();
+    t.term = new Terminal({
+        cursorBlink: true, fontSize: 14,
+        fontFamily: "'JetBrains Mono','Cascadia Code',monospace",
+        theme: { background: '#0D1117', foreground: '#E6EDF3', cursor: '#BEF264',
+                 selectionBackground: '#264f78', black: '#484F58', red: '#FF7B72',
+                 green: '#3FB950', yellow: '#D29922', blue: '#58A6FF', magenta: '#BC8CFF',
+                 cyan: '#39C5CF', white: '#B1BAC4' }
+    });
+    if (typeof FitAddon !== 'undefined') {
+        t.fit = new FitAddon.FitAddon();
+        t.term.loadAddon(t.fit);
+    }
+    t.term.open(t.el);
+    if (t.fit) t.fit.fit();
+
+    var uid = (API.getCurrentUser() || {}).id || 1;
+    t.term.onData(function(d) {
+        if (termSocket) termSocket.emit('terminal_input', { student_id: uid, session_id: t.id, command: d });
+    });
+    t.term.onResize(function(s) {
+        if (termSocket) termSocket.emit('terminal_resize', { student_id: uid, session_id: t.id, cols: s.cols, rows: s.rows });
+    });
+
+    termSocket.emit('terminal_connect', {
+        student_id: uid, session_id: t.id,
+        host: t.host, user: t.user, password: t.pass,
+        course_id: courseId || null
+    });
+};
+</script>
+
+
+<!-- 知识面板脚本 -->
+<script>
+// 侧边栏折叠
+function toggleCollapse(id) {
+    var content = document.getElementById(id);
+    var icon = document.getElementById('icon-' + id);
+    if (content) content.classList.toggle('active');
+    if (icon) icon.classList.toggle('active');
+}
+
+// === 知识面板（使用 API.aiKnowledge 代理 + 持久化） ===
+var knowledgeHistory = [];
+var knowledgeInited = false;
+
+function toggleKnowledge(show) {
+    var panel = document.getElementById('knowledge-panel');
+    if (!panel) return;
+    if (show) {
+        panel.classList.add('active');
+        if (!knowledgeInited) {
+            knowledgeInited = true;
+            var st = subtasks[currentSubtaskIdx];
+            var sysContent = '你是数智实训平台的知识答疑助手。学生正在实训中。当前子任务：' + (st ? st.name : '')
+                + '。知识点背景：' + ((st && st.knowledge_text) || (st ? st.command : '') || '无预设内容，请基于当前操作回答。')
+                + ' 请简洁回答，每条回复≤200字。';
+            knowledgeHistory = [{ role: 'system', content: sysContent }];
+            appendKnMsg('ai', (st && st.knowledge_text) || '我是知识答疑助手，对当前子任务有任何不清楚的地方，随时问我。');
+        }
+    } else {
+        panel.classList.remove('active');
+    }
+}
+
+function appendKnMsg(role, content, isTemp) {
+    var container = document.getElementById('knowledge-messages');
+    if (!container) return '';
+    var div = document.createElement('div');
+    var id = 'kn-msg-' + Date.now();
+    div.id = id;
+    if (role === 'user') {
+        div.className = 'flex gap-3 flex-row-reverse';
+        div.innerHTML = '<div class="w-7 h-7 rounded-lg bg-zinc-800 flex-none flex items-center justify-center text-zinc-400"><iconify-icon icon="lucide:user" class="text-xs"></iconify-icon></div><div class="flex-1 flex flex-col items-end"><div class="bg-lime-400 text-zinc-950 rounded-xl p-3 text-sm max-w-[90%]">'+htmlEscape(content)+'</div></div>';
+    } else {
+        div.className = 'flex gap-3';
+        div.innerHTML = '<div class="w-7 h-7 rounded-lg bg-lime-400/15 flex-none flex items-center justify-center text-lime-300"><iconify-icon icon="lucide:bot" class="text-xs"></iconify-icon></div><div class="flex-1"><div class="bg-zinc-800 rounded-xl p-3 text-sm text-zinc-300 leading-relaxed max-w-[90%] whitespace-pre-wrap">'+htmlEscape(content)+'</div></div>';
+    }
+    if (isTemp) div.classList.add('animate-pulse');
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return id;
+}
+
+function updateKnMsg(id, content) {
+    var div = document.getElementById(id);
+    if (!div) return;
+    div.classList.remove('animate-pulse');
+    var bubble = div.querySelector('.bg-zinc-800');
+    if (bubble) bubble.textContent = content;
+}
+
+function askKnowledge() {
+    var input = document.getElementById('knowledge-input');
+    if (!input) return;
+    var msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    input.style.height = 'auto';
+    appendKnMsg('user', msg);
+    knowledgeHistory.push({ role: 'user', content: msg });
+
+    var st = subtasks[currentSubtaskIdx];
+    if (st) API.saveKnowledgeChat(st.id, 'user', msg).catch(function(){});
+
+    var btn = document.getElementById('kn-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<iconify-icon icon="lucide:loader" class="animate-spin text-lg"></iconify-icon>'; }
+    var loadId = appendKnMsg('ai', '思考中...', true);
+
+    API.aiKnowledge(knowledgeHistory.slice(-10)).then(function(data) {
+        var reply = data.reply || '暂时无法回答，请重试。';
+        updateKnMsg(loadId, reply);
+        knowledgeHistory.push({ role: 'assistant', content: reply });
+        if (st) API.saveKnowledgeChat(st.id, 'assistant', reply).catch(function(){});
+    }).catch(function(e) {
+        updateKnMsg(loadId, '请求失败：' + e.message);
+    }).finally(function() {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<iconify-icon class="text-lg" icon="lucide:send"></iconify-icon>'; }
+    });
+}
+
+function quickAsk(msg) {
+    var input = document.getElementById('knowledge-input');
+    if (input) { input.value = msg; askKnowledge(); }
+}
+
+// 知识面板 Enter 发送
+(function() {
+    var knInput = document.getElementById('knowledge-input');
+    if (knInput) {
+        knInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askKnowledge(); }
+        });
+    }
+})();
+
+// === 拖拽分隔条 ===
+(function() {
+    var handle = document.getElementById('resize-handle');
+    var chatPanel = document.getElementById('chat-panel');
+    var terminalPanel = document.getElementById('terminal-panel');
+    if (!handle || !chatPanel || !terminalPanel) return;
+    var parent = chatPanel.parentElement;
+    var isResizing = false;
+
+    handle.addEventListener('mousedown', function(e) {
+        isResizing = true;
+        handle.classList.add('active');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!isResizing) return;
+        var rect = parent.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        var handleW = handle.offsetWidth;
+        var minW = 200;
+        var maxW = rect.width - handleW - minW;
+        var leftW = Math.max(minW, Math.min(maxW, x));
+        chatPanel.style.flex = '0 0 ' + leftW + 'px';
+        terminalPanel.style.flex = '1 1 auto';
+        chatPanel.style.width = leftW + 'px';
+    });
+
+    document.addEventListener('mouseup', function() {
+        if (!isResizing) return;
+        isResizing = false;
+        handle.classList.remove('active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    });
+})();
+// === 清空聊天 ===
+function clearCurrentChat() {
+    if (!confirm('确定清空当前子任务聊天记录？')) return;
+    var st = subtasks[currentSubtaskIdx];
+    if (st) {
+        // 保留系统消息
+        var sysMsg = taskHistories[st.id] && taskHistories[st.id][0];
+        taskHistories[st.id] = sysMsg ? [sysMsg] : [];
+    }
+    document.getElementById('chat-messages').innerHTML = '';
+}
+// === 生成实训报告 ===
+// 同步生成报告，前端展示 AI 生成进度提示
+async function generateReport() {
+    var modal = document.getElementById('report-modal');
+    var content = document.getElementById('report-content');
+    var title = document.getElementById('report-modal-title');
+    if (title) title.innerText = (courseName || '当前课程') + ' - 实训报告';
+    modal.classList.remove('hidden');
+    renderReportLoading('AI 正在生成实训报告，约需 10-30 秒...');
+    try {
+        var data = await API.generateReportAsync(courseId);
+        if (data.content) {
+            content.innerHTML = '<div class=\"text-sm text-zinc-300 leading-relaxed prose prose-invert max-w-none\">' + marked.parse(data.content) + '</div>';
+        }
+    } catch(e) {
+        content.innerHTML = '<div class=\"text-rose-400 text-sm text-center\">生成失败: ' + e.message + '</div>';
+    }
+}
+function renderReportLoading(message) {
+    var content = document.getElementById('report-content');
+    content.innerHTML = '<div class="text-center py-12"><iconify-icon icon="lucide:loader" class="animate-spin text-3xl text-emerald-400"></iconify-icon><p class="text-zinc-500 mt-3">' + (message || '报告生成已加入队列...') + '</p></div>';
+}
+function closeReportModal() { document.getElementById('report-modal').classList.add('hidden'); }
+
+// === 历史对话 ===
+function showChatHistory() {
+    var st = subtasks[currentSubtaskIdx];
+    if (!st) { toast('请先选择子任务', 'warn'); return; }
+    var modal = document.getElementById('history-modal');
+    var title = document.getElementById('history-modal-title');
+    var content = document.getElementById('history-content');
+    if (!modal || !content) return;
+    if (title) title.innerText = '历史对话 - ' + st.name;
+    modal.classList.remove('hidden');
+    content.innerHTML = '<div class="text-center py-10 text-zinc-500 text-sm"><iconify-icon icon="lucide:loader" class="animate-spin text-2xl mb-2"></iconify-icon><p>加载中...</p></div>';
+
+    // 接口：GET /api/chat/history/<subtask_id>（路径参数，已封装为 API.getChatHistory）
+    API.getChatHistory(st.id).then(function(data) {
+        renderChatHistory(data.messages || data || []);
+    }).catch(function(e) {
+        content.innerHTML = '<div class="text-center py-10 text-rose-400 text-sm">加载失败: ' + htmlEscape(e.message || e) + '</div>';
+    });
+}
+
+function renderChatHistory(messages) {
+    var content = document.getElementById('history-content');
+    if (!content) return;
+    if (!messages || messages.length === 0) {
+        content.innerHTML = '<div class="text-center py-10 text-zinc-500 text-sm">暂无历史对话记录</div>';
+        return;
+    }
+    var html = '';
+    messages.forEach(function(m) {
+        if (m.role === 'system') return;
+        if (m.role === 'user') {
+            html += '<div class="flex gap-3 flex-row-reverse">'
+                + '<div class="w-8 h-8 rounded-lg bg-zinc-800 flex-none flex items-center justify-center text-zinc-400"><iconify-icon icon="lucide:user"></iconify-icon></div>'
+                + '<div class="flex-1 flex flex-col items-end"><div class="bg-lime-400 p-3 text-sm text-zinc-950 rounded-xl max-w-[85%]">' + htmlEscape(m.content) + '</div></div>'
+                + '</div>';
+        } else {
+            html += '<div class="flex gap-3">'
+                + '<div class="w-8 h-8 rounded-lg bg-lime-400/15 flex-none flex items-center justify-center text-lime-300"><iconify-icon icon="lucide:bot"></iconify-icon></div>'
+                + '<div class="flex-1"><div class="bg-zinc-800 p-3 text-sm text-zinc-300 rounded-xl max-w-[85%] whitespace-pre-wrap">' + htmlEscape(m.content) + '</div></div>'
+                + '</div>';
+        }
+    });
+    content.innerHTML = html;
+    content.scrollTop = content.scrollHeight;
+}
+
+function closeHistoryModal() { document.getElementById('history-modal').classList.add('hidden'); }
+
+// === 确认弹窗 ===
+var _confirmCallback = null;
+function resetCourseProgress() {
+    showConfirmModal('重新开始后，本课程全部任务进度和计时将清除（已生成的实训报告保留）。确定重新开始吗？', function() {
+        apiFetch('/progress/reset', { method: 'POST', body: JSON.stringify({ course_id: courseId }) })
+          .then(function() {
+              sessionStorage.removeItem('dt_auto_start_' + courseId);  // 清防重标记，刷新后自动开始任务1
+              window.location.reload();
+          })
+          .catch(function(e) { alert('重置失败：' + e.message); });
+    });
+}
+
+function showConfirmModal(message, onConfirm) {
+    var modal = document.getElementById('confirm-modal');
+    if (!modal) { if (confirm(message)) onConfirm(); return; }
+    var msgEl = modal.querySelector('p.text-sm');
+    if (msgEl && message) msgEl.innerText = message;
+    _confirmCallback = onConfirm;
+    modal.classList.remove('hidden');
+}
+function closeConfirmModal() {
+    var modal = document.getElementById('confirm-modal');
+    if (modal) modal.classList.add('hidden');
+    _confirmCallback = null;
+}
+function confirmOk() {
+    var cb = _confirmCallback;
+    closeConfirmModal();
+    if (typeof cb === 'function') cb();
+}
+
+// === 我的报告（弹窗标题修复 + 列表展示） ===
+async function showMyReports() {
+    var modal = document.getElementById('report-modal');
+    var content = document.getElementById('report-content');
+    var title = document.getElementById('report-modal-title');
+    if (!modal || !content) return;
+    if (title) title.innerText = (courseName || '当前课程') + ' - 我的报告';
+    modal.classList.remove('hidden');
+    content.innerHTML = '<div class="text-center py-12"><iconify-icon icon="lucide:loader" class="animate-spin text-3xl text-lime-300"></iconify-icon><p class="text-zinc-500 mt-3 text-sm">加载报告列表...</p></div>';
+    try {
+        var data = await API.listReports();
+        var reports = (data.reports || data || []);
+        window._myReports = reports;
+        if (!reports.length) {
+            content.innerHTML = '<div class="text-center py-12 text-zinc-500 text-sm"><iconify-icon icon="lucide:file-question" class="text-3xl mb-2"></iconify-icon><p>暂无已生成的实训报告</p></div>';
+            return;
+        }
+        var html = '<div class="space-y-3">';
+        reports.forEach(function(r) {
+            var gradeColor = r.grade && r.grade >= 80 ? 'text-emerald-400' : r.grade && r.grade >= 60 ? 'text-amber-400' : 'text-rose-400';
+            var date = r.created_at ? new Date(r.created_at).toLocaleString('zh-CN') : '未知时间';
+            html += '<div class="bg-white/5 rounded-xl border border-white/10 p-4 hover:bg-white/10 transition-colors cursor-pointer" onclick="viewMyReportDetail(' + r.id + ')">'
+                + '<div class="flex items-center justify-between mb-1">'
+                + '<span class="text-sm font-semibold text-zinc-200">' + htmlEscape(r.course_name || courseName || '实训报告') + '</span>'
+                + '<span class="text-sm font-bold ' + gradeColor + '">' + (r.grade != null ? r.grade + '分' : '未评分') + '</span>'
+                + '</div>'
+                + '<div class="flex items-center gap-3 text-xs text-zinc-400">'
+                + '<span><iconify-icon icon="lucide:clock" class="mr-1"></iconify-icon>' + date + '</span>'
+                + (r.total_time_hours != null ? '<span><iconify-icon icon="lucide:timer" class="mr-1"></iconify-icon>' + Math.round(r.total_time_hours) + ' 分钟</span>' : '')
+                + '</div>'
+                + '<div class="mt-2 text-xs text-lime-300 flex items-center gap-1"><iconify-icon icon="lucide:download"></iconify-icon> 点击下载报告</div>'
+                + '</div>';
+        });
+        html += '</div>';
+        content.innerHTML = html;
+    } catch(e) {
+        content.innerHTML = '<div class="text-center py-12 text-rose-400 text-sm">加载失败: ' + htmlEscape(e.message) + '</div>';
+    }
+}
+
+function viewMyReportDetail(reportId) {
+    var r = (window._myReports || []).find(function(x){ return x.id === reportId; });
+    if (!r) { showMyReports(); return; }
+    var title = document.getElementById('report-modal-title');
+    if (title) title.innerText = (r.course_name || courseName || '实训报告');
+    var content = document.getElementById('report-content');
+    var mdHtml = (typeof marked !== 'undefined' && marked.parse) ? marked.parse(r.content || '') : htmlEscape(r.content || '');
+    content.innerHTML = '<div class="flex items-center justify-between mb-4">'
+        + '<button class="text-xs text-lime-300 hover:text-lime-200 flex items-center gap-1" onclick="showMyReports()"><iconify-icon icon="lucide:arrow-left"></iconify-icon> 返回列表</button>'
+        + '<button class="text-xs text-lime-300 hover:text-lime-200 flex items-center gap-1" onclick="API.downloadReport(' + r.id + ')"><iconify-icon icon="lucide:download"></iconify-icon> 下载 .md</button>'
+        + '</div>'
+        + '<div class="text-sm text-zinc-300 leading-relaxed prose prose-invert max-w-none">' + mdHtml + '</div>';
+}
+</script>
+
+<!-- 报告弹窗 -->
+<div class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-6" id="report-modal" onclick="closeReportModal()">
+    <div class="bg-zinc-900 rounded-2xl border border-white/10 w-full max-w-3xl max-h-[80vh] flex flex-col shadow-2xl" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between p-5 border-b border-white/10 flex-none">
+            <div class="flex items-center gap-2">
+                <iconify-icon class="text-emerald-400" icon="lucide:award"></iconify-icon>
+                <span class="text-sm font-semibold" id="report-modal-title">实训报告</span>
+            </div>
+            <button class="text-zinc-500 hover:text-white" onclick="closeReportModal()"><iconify-icon class="text-xl" icon="lucide:x"></iconify-icon></button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6" id="report-content"></div>
+        <div class="flex-none px-6 py-3 border-t border-white/10 bg-white/5">
+            <p class="text-xs text-zinc-400 flex items-center gap-1.5">
+                <iconify-icon icon="lucide:info" class="text-lime-300"></iconify-icon>
+                可点击右上角"我的报告"查看历史报告
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- 历史对话弹窗 -->
+<div class="hidden fixed inset-0 z-[65] flex items-center justify-center bg-black/70 backdrop-blur-sm p-6" id="history-modal" onclick="closeHistoryModal()">
+    <div class="bg-zinc-900 rounded-2xl border border-white/10 w-full max-w-2xl max-h-[75vh] flex flex-col shadow-2xl" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between p-5 border-b border-white/10 flex-none">
+            <div class="flex items-center gap-2">
+                <iconify-icon class="text-lime-300" icon="lucide:history"></iconify-icon>
+                <span class="text-sm font-semibold text-zinc-50" id="history-modal-title">历史对话</span>
+            </div>
+            <button class="text-zinc-500 hover:text-zinc-200" onclick="closeHistoryModal()"><iconify-icon class="text-xl" icon="lucide:x"></iconify-icon></button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6 space-y-4" id="history-content"></div>
+    </div>
+</div>
+
+<!-- 确认弹窗 -->
+<div class="hidden fixed inset-0 z-[75] flex items-center justify-center bg-black/70 backdrop-blur-sm p-6" id="confirm-modal" onclick="closeConfirmModal()">
+    <div class="bg-zinc-900 rounded-2xl border border-white/10 w-full max-w-md shadow-2xl" onclick="event.stopPropagation()">
+        <div class="p-6">
+            <div class="flex items-start gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-amber-400/10 flex items-center justify-center text-amber-400 flex-none">
+                    <iconify-icon icon="lucide:alert-triangle" class="text-xl"></iconify-icon>
+                </div>
+                <div class="flex-1">
+                    <h3 class="font-bold text-zinc-50 text-base mb-1">确认进入下一阶段</h3>
+                    <p class="text-sm text-zinc-400 leading-relaxed">若未完成子任务进入下一阶段，将会导致评分过低</p>
+                </div>
+            </div>
+            <div class="flex gap-3 justify-end">
+                <button class="px-4 py-2 text-sm font-medium text-zinc-300 bg-white/10 rounded-full hover:bg-white/15 transition-colors" onclick="closeConfirmModal()">取消</button>
+                <button class="px-4 py-2 text-sm font-medium rounded-full bg-lime-400 text-zinc-950 hover:bg-lime-300 transition-colors" id="confirm-ok-btn" onclick="confirmOk()">确认继续</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 帮助中心弹窗 -->
+<div class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-black/70 backdrop-blur-sm p-6" id="help-modal" onclick="document.getElementById('help-modal').classList.add('hidden')">
+    <div class="bg-zinc-900 rounded-2xl border border-white/10 shadow-2xl max-w-md w-full p-6" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-zinc-50">帮助中心</h3>
+            <button class="p-1 text-zinc-500 hover:text-zinc-200" onclick="document.getElementById('help-modal').classList.add('hidden')"><iconify-icon icon="lucide:x"></iconify-icon></button>
+        </div>
+        <div class="space-y-3">
+            <div class="bg-zinc-800/60 rounded-lg p-3">
+                <div class="text-sm font-semibold text-zinc-200 mb-1">如何开始学习？</div>
+                <div class="text-xs text-zinc-400">在课程中心选择课程，进入实训空间后按子任务顺序操作，AI 副驾会实时指导。</div>
+            </div>
+            <div class="bg-zinc-800/60 rounded-lg p-3">
+                <div class="text-sm font-semibold text-zinc-200 mb-1">如何使用知识搜索？</div>
+                <div class="text-xs text-zinc-400">在对话区输入问题，AI 会检索大数据技术知识库给出答案。</div>
+            </div>
+            <div class="bg-zinc-800/60 rounded-lg p-3">
+                <div class="text-sm font-semibold text-zinc-200 mb-1">如何查看实训报告？</div>
+                <div class="text-xs text-zinc-400">完成全部子任务后点击生成报告，或右上角「我的报告」查看。</div>
+            </div>
+            <div class="bg-zinc-800/60 rounded-lg p-3">
+                <div class="text-sm font-semibold text-zinc-200 mb-1">如何调整字体大小？</div>
+                <div class="text-xs text-zinc-400">右上角设置菜单中可调节页面字体大小（A-/默认/A+）。</div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 关于弹窗 -->
+<div class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-black/70 backdrop-blur-sm p-6" id="about-modal" onclick="document.getElementById('about-modal').classList.add('hidden')">
+    <div class="bg-zinc-900 rounded-2xl border border-white/10 shadow-2xl w-full max-w-md p-6 relative" onclick="event.stopPropagation()">
+        <button class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-200" onclick="document.getElementById('about-modal').classList.add('hidden')"><iconify-icon class="text-xl" icon="lucide:x"></iconify-icon></button>
+        <div class="text-center mb-5">
+            <div class="w-16 h-16 bg-lime-400/10 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-lime-400/20">
+                <img src="/static/img/logo.png" alt="数智实训平台" class="h-10 w-10 rounded-lg">
+            </div>
+            <h2 class="text-lg font-bold text-zinc-50 mb-1">数智实训平台</h2>
+            <p class="text-xs text-zinc-500">大数据技术学科垂类智能教学助手</p>
+        </div>
+        <div class="bg-zinc-800/60 border border-white/10 rounded-xl p-4 text-left space-y-3">
+            <div class="flex justify-between text-xs"><span class="text-zinc-500">版本</span><span class="text-zinc-200 mono">v4.0</span></div>
+            <div class="text-xs">
+                <div class="text-zinc-500 mb-1.5">知识库（3 个）</div>
+                <div class="space-y-1 pl-3 border-l border-lime-400/30">
+                    <div class="text-zinc-200">大数据技术知识库</div>
+                    <div class="text-zinc-200">实操诊断知识库</div>
+                    <div class="text-zinc-200">实训任务模板库</div>
+                </div>
+            </div>
+            <div class="text-xs">
+                <div class="text-zinc-500 mb-1.5">智能体（4 个）</div>
+                <div class="space-y-1 pl-3 border-l border-cyan-400/30">
+                    <div class="text-zinc-200">TeacherAgent <span class="text-zinc-400">— 实训任务生成</span></div>
+                    <div class="text-zinc-200">KnowledgeAgent <span class="text-zinc-400">— 万能知识库</span></div>
+                    <div class="text-zinc-200">TrainingAgent <span class="text-zinc-400">— 实训副驾</span></div>
+                    <div class="text-zinc-200">ReportAgent <span class="text-zinc-400">— 实训报告生成</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+function toggleSettings(){var p=document.getElementById('settings-popover');p.classList.toggle('hidden')}
+function adjustFontSize(d){var s=parseInt(localStorage.getItem('dt_font_size')||16)+d*2;s=Math.max(12,Math.min(24,s));document.documentElement.style.fontSize=s+'px';localStorage.setItem('dt_font_size',s)}
+(function(){var fs=parseInt(localStorage.getItem('dt_font_size')||16);if(fs!==16)document.documentElement.style.fontSize=fs+'px'})()
+</script>
+</body>
+</html>

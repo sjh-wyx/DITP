@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>教师管理 - 数智实训平台</title>
+<script src="https://modao.cc/agent-py/static/source/js/tailwindcss.js">
+
+
+
+
+
+
+
+
+</script>
+<script src="https://modao.cc/agent-py/static/source/js/iconify-icon.min.js">
+
+
+
+
+
+
+
+
+</script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/particles.js"></script>
+</head>
+<body class="bg-zinc-950 text-zinc-100 h-screen flex overflow-hidden">
+
+<!-- 背景粒子场（Canvas，纯装饰层，引擎见 static/js/particles.js） -->
+<canvas aria-hidden="true" id="dt-particles" style="position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block;"></canvas>
+
+<style>
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .course-card { transition: all 0.2s ease; }
+  .course-card:hover { transform: scale(1.02); box-shadow: 0 8px 30px rgba(190,242,100,0.15); }
+  .subtask-item { transition: all 0.15s ease; }
+  .subtask-item:hover { border-color: #BEF264; }
+</style>
+<div class="flex w-full h-full">
+
+<!-- ===== LEFT SIDEBAR ===== -->
+<aside class="w-[220px] bg-zinc-900 border-r border-white/10 flex flex-col flex-none">
+  <!-- Logo -->
+  <div class="flex-none px-4 py-3 border-b border-white/10 flex items-center gap-2">
+    <img alt="数智实训平台" class="w-7 h-7 rounded-lg" src="/static/img/logo.png"/>
+    <span class="text-sm font-bold text-zinc-50">数智实训平台</span>
+  </div>
+  <!-- Class header -->
+  <div class="flex-none p-4 flex items-center justify-between">
+    <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">班级管理</span>
+    <button class="p-1 text-lime-300 hover:bg-white/5 rounded transition-colors" onclick="my_showCreateClass()">
+      <iconify-icon icon="lucide:plus-circle" class="text-base"></iconify-icon>
+    </button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-2 space-y-1" id="class-list">
+    <p class="text-xs text-zinc-500 text-center py-8">加载中...</p>
+  </div>
+</aside>
+
+<!-- ===== MAIN ===== -->
+<main class="flex-1 flex flex-col overflow-hidden">
+  <!-- Top bar -->
+  <header class="flex-none h-14 bg-zinc-950/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-6">
+    <h1 class="text-sm font-bold text-zinc-100" id="top-title">数智实训平台 · 教师工作台</h1>
+    <div class="flex items-center gap-3">
+      <div class="relative" id="teacher-menu-wrap">
+        <div class="flex items-center gap-2 cursor-pointer hover:bg-white/5 rounded-full px-2 py-1 transition-colors" onclick="my_toggleMenu()">
+          <div class="w-8 h-8 rounded-full bg-lime-400/15 flex items-center justify-center text-xs font-bold text-lime-300" id="teacher-avatar">教</div>
+          <span class="text-sm font-medium text-zinc-300" id="teacher-name">教师</span>
+          <iconify-icon class="text-zinc-500 text-xs" icon="lucide:chevron-down"></iconify-icon>
+        </div>
+        <div class="hidden absolute right-0 mt-2 w-48 bg-zinc-900 rounded-xl shadow-xl border border-white/10 py-1 z-50" id="teacher-menu">
+          <div class="px-4 py-3 border-b border-white/10">
+            <div class="text-sm font-semibold text-zinc-50" id="menu-fullname">教师</div>
+            <div class="text-xs text-zinc-500 mt-0.5" id="menu-role">教师</div>
+            <div class="text-xs text-zinc-500 mt-0.5" id="menu-tid">—</div>
+          </div>
+          <button class="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-white/5 flex items-center gap-2" onclick="my_showProfile()"><iconify-icon icon="lucide:user" class="text-zinc-500"></iconify-icon> 个人信息</button>
+          <button class="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-white/5 flex items-center gap-2" onclick="my_logout()"><iconify-icon icon="lucide:log-out" class="text-zinc-500"></iconify-icon> 退出登录</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <!-- Empty state -->
+  <div class="flex-1 flex items-center justify-center" id="empty-state">
+    <div class="text-center">
+      <div class="w-20 h-20 bg-lime-400/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <iconify-icon class="text-lime-300 text-3xl" icon="lucide:graduation-cap"></iconify-icon>
+      </div>
+      <p class="text-zinc-400 text-sm">选择左侧班级或点击 + 创建新班级</p>
+    </div>
+  </div>
+
+  <!-- Detail -->
+  <div class="flex-1 flex flex-col overflow-hidden hidden" id="detail-panel">
+    <!-- Header -->
+    <div class="flex-none px-6 py-3 bg-zinc-950/60 border-b border-white/10 flex items-center justify-between">
+      <h1 class="text-base font-bold text-zinc-50" id="detail-title">班级详情</h1>
+      <div class="flex gap-2">
+        <button class="px-3 py-1.5 rounded-full bg-lime-400 text-zinc-950 text-xs font-semibold hover:bg-lime-300 transition" onclick="my_showCreateCourse()">+ 创建课程</button>
+        <button class="px-3 py-1.5 rounded-full border border-white/15 bg-white/5 text-zinc-100 text-xs font-semibold hover:bg-white/10 transition" onclick="my_showAssign()">分配课程</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex-none flex border-b border-white/10 bg-zinc-950/60 px-6">
+      <button class="tab-btn px-4 py-3 text-sm font-semibold text-zinc-400 border-b-2 border-lime-400 text-lime-300" data-tab="courses" onclick="my_switchTab('courses')">课程管理</button>
+      <button class="tab-btn px-4 py-3 text-sm font-semibold text-zinc-400" data-tab="analytics" onclick="my_switchTab('analytics')">学情分析</button>
+    </div>
+
+    <!-- Tab: 课程管理 -->
+    <div class="flex-1 overflow-y-auto" id="tab-courses">
+      <!-- Class course list -->
+      <div class="px-6 pt-4 pb-2" id="class-courses-area"></div>
+      <!-- Subtask detail -->
+      <div class="hidden" id="subtask-detail">
+        <div class="px-6 py-4">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-zinc-50" id="subtask-course-name"></h2>
+            <div class="flex gap-2">
+              <button class="px-3 py-2 rounded-full bg-lime-400 text-zinc-950 text-sm font-semibold hover:bg-lime-300 transition" onclick="my_showAddSubtask()"><iconify-icon class="mr-1 align-middle" icon="lucide:plus"></iconify-icon>添加子任务</button>
+            </div>
+          </div>
+          <div class="space-y-2" id="subtask-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: 学情分析 -->
+    <div class="flex-1 overflow-y-auto p-6 hidden" id="tab-analytics">
+      <div class="flex items-center gap-4 mb-6">
+        <h2 class="text-lg font-bold text-zinc-50">学情分析</h2>
+        <select class="px-3 py-2 border border-white/10 bg-zinc-900 rounded-xl text-sm text-zinc-300 outline-none focus:border-lime-400/60" id="analytics-course-select" onchange="my_loadAnalytics()">
+          <option value="">请选择课程</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-zinc-900 border border-white/10 rounded-xl p-4 text-center"><div class="text-2xl font-bold text-lime-300 font-mono" id="ana-students">0</div><div class="text-xs text-zinc-500 mt-1">班级人数</div></div>
+        <div class="bg-zinc-900 border border-white/10 rounded-xl p-4 text-center"><div class="text-2xl font-bold text-emerald-400 font-mono" id="ana-avg">0</div><div class="text-xs text-zinc-500 mt-1">人均任务</div></div>
+        <div class="bg-zinc-900 border border-white/10 rounded-xl p-4 text-center"><div class="text-2xl font-bold text-amber-400 font-mono" id="ana-rate">0%</div><div class="text-xs text-zinc-500 mt-1">完成率</div></div>
+      </div>
+      <div class="bg-zinc-900 border border-white/10 rounded-xl p-4">
+        <h3 class="text-xs font-bold text-zinc-500 uppercase mb-3">学生成绩</h3>
+        <div id="student-progress" class="space-y-2 text-sm"></div>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- Slide-in Drawer -->
+<div class="fixed top-0 right-0 h-full w-[460px] bg-zinc-900 border-l border-white/10 shadow-2xl z-40 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col" id="course-drawer">
+  <div class="flex-none flex items-center justify-between px-6 py-4 border-b border-white/10">
+    <h3 class="text-base font-bold text-zinc-50" id="drawer-title">课程详情</h3>
+    <button class="p-1 text-zinc-500 hover:bg-white/5 rounded-lg" onclick="my_closeDrawer()"><iconify-icon class="text-xl" icon="lucide:x"></iconify-icon></button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-6" id="drawer-body"></div>
+  <div class="flex-none p-4 border-t border-white/10 flex gap-2">
+    <button class="px-4 py-2 text-zinc-400 hover:bg-white/5 rounded-full text-sm transition" onclick="my_closeDrawer()">关闭</button>
+  </div>
+</div>
+<div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-30 hidden" id="drawer-overlay" onclick="my_closeDrawer()"></div>
+
+<!-- MODALS -->
+<!-- Create Class -->
+<div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" id="modal-class">
+  <div class="bg-zinc-900 rounded-2xl border border-white/10 w-full max-w-sm p-6 shadow-2xl" onclick="event.stopPropagation()">
+    <h3 class="font-bold text-lg mb-4 text-zinc-50">创建班级</h3>
+    <div class="space-y-4">
+      <div><label class="block text-sm font-semibold text-zinc-300 mb-1">班级名称</label><input class="w-full px-3 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-sm text-zinc-50 placeholder-zinc-500 outline-none focus:border-lime-400/60 focus:ring-2 focus:ring-lime-400/20" id="input-class-name" placeholder="如：大数据一班"></div>
+      <div><label class="block text-sm font-semibold text-zinc-300 mb-1">班级码</label><input class="w-full px-3 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-sm text-zinc-500 font-mono" id="input-class-code" readonly></div>
+    </div>
+    <div class="mt-6 flex gap-3 justify-end">
+      <button class="px-4 py-2 text-sm text-zinc-400 hover:bg-white/5 rounded-full transition" onclick="my_closeModal('modal-class')">取消</button>
+      <button class="px-4 py-2 rounded-full bg-lime-400 text-zinc-950 text-sm font-semibold hover:bg-lime-300 transition" onclick="my_createClass()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Course (with AI) -->
+<div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" id="modal-course">
+  <div class="bg-zinc-900 rounded-2xl border border-white/10 w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl" onclick="event.stopPropagation()">
+    <div class="flex-none p-6 border-b border-white/10 flex items-center justify-between">
+      <h3 class="font-bold text-zinc-50 text-lg" id="modal-course-title">创建实训课程</h3>
+      <button class="text-zinc-500 hover:text-zinc-200" onclick="my_closeModal('modal-course')"><iconify-icon class="text-xl" icon="lucide:x"></iconify-icon></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-6 space-y-5">
+      <!-- AI 辅助区 -->
+      <div class="bg-cyan-400/5 rounded-xl p-5 border border-cyan-400/20" id="ai-assist-area">
+        <div class="flex items-center gap-2 mb-3">
+          <iconify-icon class="text-cyan-400" icon="lucide:sparkles"></iconify-icon>
+          <span class="text-sm font-bold text-cyan-300">AI 辅助生成</span>
+        </div>
+        <p class="text-xs text-cyan-300/80 mb-3">描述您想创建的实训任务，AI 将自动填充课程名称、简介和子任务清单。</p>
+        <textarea class="w-full px-3 py-2.5 bg-zinc-900 border border-cyan-400/20 rounded-xl text-sm text-zinc-50 placeholder-zinc-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 resize-none" id="input-ai-prompt" placeholder="例如：利用Hive对淘宝用户日志进行多维度分析" rows="2"></textarea>
+        <div class="flex items-center gap-2 mt-2">
+          <input type="file" id="input-ai-file" class="hidden" onchange="ai_onFileChange(this)">
+          <button class="px-3 py-1.5 text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full hover:bg-amber-400/20 transition" onclick="document.getElementById('input-ai-file').click()"><iconify-icon icon="lucide:file-up" class="mr-1 align-middle"></iconify-icon>上传数据文件</button>
+          <span class="text-xs text-zinc-500" id="ai-file-name">未选择文件</span>
+        </div>
+        <button class="mt-3 w-full py-2.5 rounded-full bg-lime-400 text-zinc-950 text-sm font-semibold hover:bg-lime-300 flex items-center justify-center gap-2 transition" id="btn-ai-generate" onclick="aiGenerateCourse()"><iconify-icon icon="lucide:sparkles" style="pointer-events:none"></iconify-icon> AI 生成实训大纲</button>
+        <div class="hidden mt-3 bg-zinc-950/60 rounded-xl border border-white/10 p-4 max-h-60 overflow-y-auto" id="ai-preview-box"><div class="text-xs text-zinc-400 leading-relaxed" id="ai-preview-content"></div></div>
+      </div>
+      <div class="border-t border-white/5"></div>
+      <!-- Basic info -->
+      <div><label class="block text-sm font-semibold text-zinc-300 mb-1">课程名称 <span class="text-rose-400">*</span></label><input class="w-full px-3 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-sm text-zinc-50 placeholder-zinc-500 focus:border-lime-400/60 focus:outline-none focus:ring-2 focus:ring-lime-400/20" id="input-course-name" placeholder="如：Hive 数据分析实战"></div>
+      <div><label class="block text-sm font-semibold text-zinc-300 mb-1">课程描述</label><textarea class="w-full px-3 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-sm text-zinc-50 placeholder-zinc-500 focus:border-lime-400/60 focus:outline-none focus:ring-2 focus:ring-lime-400/20 resize-none" id="input-course-desc" rows="2"></textarea></div>
+      <label class="flex items-center gap-2"><input type="checkbox" id="input-is-public" class="rounded accent-lime-400"> <span class="text-sm text-zinc-400">全站公开</span></label>
+    </div>
+    <div class="flex-none p-4 border-t border-white/10 flex justify-end gap-3">
+      <button class="px-4 py-2 text-sm text-zinc-400 hover:bg-white/5 rounded-full transition" onclick="my_closeModal('modal-course')">取消</button>
+      <button class="px-4 py-2 rounded-full bg-lime-400 text-zinc-950 text-sm font-semibold hover:bg-lime-300 transition" onclick="my_saveCourse()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Profile Modal -->
+<div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" id="modal-profile">
+  <div class="bg-zinc-900 rounded-2xl border border-white/10 w-full max-w-md p-8 shadow-2xl" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="font-bold text-lg text-zinc-50">个人信息</h3>
+      <button class="text-zinc-500 hover:text-zinc-200" onclick="my_closeModal('modal-profile')"><iconify-icon icon="lucide:x" class="text-xl"></iconify-icon></button>
+    </div>
+    <div class="flex justify-center mb-6">
+      <div class="w-20 h-20 rounded-full bg-lime-400/15 flex items-center justify-center text-2xl font-bold text-lime-300" id="profile-avatar">教</div>
+    </div>
+    <div class="space-y-4">
+      <div><label class="block text-xs font-semibold text-zinc-500 mb-1">姓名</label><input class="w-full px-3 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-sm text-zinc-50 placeholder-zinc-500 focus:border-lime-400/60 focus:ring-1 focus:ring-lime-400/20 outline-none" id="profile-name"></div>
+      <div><label class="block text-xs font-semibold text-zinc-500 mb-1">性别</label><select class="w-full px-3 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-sm text-zinc-50 focus:border-lime-400/60 outline-none" id="profile-gender"><option value="">请选择</option><option value="男">男</option><option value="女">女</option></select></div>
+      <div><label class="block text-xs font-semibold text-zinc-500 mb-1">学校</label><input class="w-full px-3 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-sm text-zinc-50 placeholder-zinc-500 focus:border-lime-400/60 focus:ring-1 focus:ring-lime-400/20 outline-none" id="profile-school"></div>
+      <div><label class="block text-xs font-semibold text-zinc-500 mb-1">邮箱</label><input class="w-full px-3 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-sm text-zinc-50 placeholder-zinc-500 focus:border-lime-400/60 focus:ring-1 focus:ring-lime-400/20 outline-none" id="profile-email" placeholder="teacher@example.com" type="email"></div>
+      <div><label class="block text-xs font-semibold text-zinc-500 mb-1">工号</label><input class="w-full px-3 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-sm text-zinc-500" id="profile-tid" readonly></div>
+    </div>
+    <div class="mt-6 flex gap-3 justify-end">
+      <button class="px-4 py-2 text-sm text-zinc-400 hover:bg-white/5 rounded-full transition" onclick="my_closeModal('modal-profile')">取消</button>
+      <button class="px-4 py-2 rounded-full bg-lime-400 text-zinc-950 text-sm font-semibold hover:bg-lime-300 transition" onclick="my_saveProfile()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var my_classes = [];
+var my_allCourses = [];
+var my_classId = null;
+var my_currentCourseId = null;
+
+// ===== INIT =====
+window.addEventListener('DOMContentLoaded', function() {
+  var user = API.getCurrentUser();
+  if (!user) { window.location.href = 'login.html'; return; }
+  var name = user.display_name || user.username || '教师';
+  document.getElementById('teacher-name').innerText = name;
+  document.getElementById('teacher-avatar').innerText = name.charAt(0).toUpperCase();
+  document.getElementById('menu-fullname').innerText = name;
+  document.getElementById('menu-role').innerText = user.role === 'teacher' ? '教师' : '学生';
+  document.getElementById('menu-tid').innerText = '工号: ' + (user.teacher_id || '—');
+  // Load profile from API
+  apiFetch('/auth/profile').then(function(p) {
+    if (p.display_name) {
+      document.getElementById('teacher-name').innerText = p.display_name;
+      document.getElementById('teacher-avatar').innerText = p.display_name.charAt(0).toUpperCase();
+      document.getElementById('menu-fullname').innerText = p.display_name;
+    }
+    document.getElementById('menu-tid').innerText = '工号: ' + (p.teacher_id || user.teacher_id || '—');
+  }).catch(function(){});
+  my_load();
+});
+
+function my_toggleMenu() { document.getElementById('teacher-menu').classList.toggle('hidden'); }
+
+function my_showProfile() {
+  document.getElementById('teacher-menu').classList.add('hidden');
+  apiFetch('/auth/profile').then(function(p) {
+    document.getElementById('profile-name').value = p.display_name || document.getElementById('teacher-name').innerText;
+    document.getElementById('profile-gender').value = p.gender || '';
+    document.getElementById('profile-school').value = p.school || '';
+    document.getElementById('profile-email').value = p.email || '';
+    document.getElementById('profile-tid').value = p.teacher_id || (API.getCurrentUser()||{}).teacher_id || '';
+    document.getElementById('profile-avatar').innerText = (p.display_name || '教').charAt(0).toUpperCase();
+    document.getElementById('modal-profile').classList.remove('hidden');
+  }).catch(function() {
+    document.getElementById('profile-name').value = document.getElementById('teacher-name').innerText;
+    document.getElementById('profile-tid').value = (API.getCurrentUser()||{}).teacher_id || '';
+    document.getElementById('modal-profile').classList.remove('hidden');
+  });
+}
+
+async function my_saveProfile() {
+  var body = {
+    display_name: document.getElementById('profile-name').value.trim(),
+    gender: document.getElementById('profile-gender').value,
+    school: document.getElementById('profile-school').value.trim(),
+    email: document.getElementById('profile-email').value.trim()
+  };
+  await apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify(body) });
+  document.getElementById('teacher-name').innerText = body.display_name;
+  document.getElementById('teacher-avatar').innerText = body.display_name.charAt(0).toUpperCase();
+  document.getElementById('menu-fullname').innerText = body.display_name;
+  my_closeModal('modal-profile');
+}
+
+function my_logout() {
+  apiFetch('/auth/logout', { method: 'POST' }).finally(function() {
+    localStorage.removeItem('datatutor_token');
+    localStorage.removeItem('datatutor_user');
+    window.location.href = 'login.html';
+  });
+}
+
+// Click outside to close menu
+document.addEventListener('click', function(e) {
+  var m = document.getElementById('teacher-menu');
+  var w = document.getElementById('teacher-menu-wrap');
+  if (m && !m.classList.contains('hidden') && !w.contains(e.target)) m.classList.add('hidden');
+});
+
+async function my_load() {
+  try {
+    var cr = await API.getClassList();
+    my_classes = cr.classes || [];
+    my_renderSidebar();
+    var ar = await API.getCourses('teacher');
+    my_allCourses = Array.isArray(ar) ? ar : (ar.courses || []);
+  } catch(e) { console.error(e); }
+}
+
+// ===== SIDEBAR =====
+
+async function my_selectClass(id) {  my_classId = id;  document.getElementById('empty-state').classList.add('hidden');  document.getElementById('detail-panel').classList.remove('hidden');  my_renderSidebar();  try {    var r = await API.getClassCourses(id);    my_renderClassCourses(r.courses || []);  } catch(e) { console.error(e); }}
+
+function my_renderSidebar() {
+  var list = document.getElementById('class-list');
+  if (!list) return;
+  list.innerHTML = '';
+  my_classes.forEach(function(c) {
+    var d = document.createElement('div');
+    d.className = 'p-3 rounded-xl border cursor-pointer border-transparent hover:bg-white/5';
+    d.onclick = function() { my_selectClass(c.id); };
+    d.innerHTML = '<div class="flex justify-between"><span class="text-sm font-semibold text-zinc-200 truncate">'+c.name+'</span><button class="text-zinc-500 hover:text-rose-400 text-xs" onclick="event.stopPropagation();my_deleteClass('+c.id+',\''+c.name+'\')">&times;</button></div><div class="text-xs text-zinc-500 mt-0.5 font-mono">'+c.class_code+'</div>';
+    list.appendChild(d);
+  });
+  if (!my_classes.length) list.innerHTML = '<p class="text-xs text-zinc-500 text-center py-8">暂无班级，点击 + 创建</p>';
+}
+
+async function my_deleteClass(id, name) {
+  if (!confirm('删除班级 '+name+'？')) return;
+  await API.deleteClass(id);
+  my_classes = my_classes.filter(function(c){return c.id!=id;});
+  if (my_classId == id) { my_classId = null; document.getElementById('detail-panel').classList.add('hidden'); document.getElementById('empty-state').classList.remove('hidden'); document.getElementById('empty-state').style.display = ''; }
+  my_renderSidebar();
+}
+
+async function my_deleteCourse(cid, btn) {
+  var card = btn.closest('[data-cname]');
+  var cname = card ? card.dataset.cname : '该课程';
+  if (!confirm('确定删除课程「'+cname+'」？\n将级联清理子任务、进度、对话、报告等数据，不可恢复。')) return;
+  try {
+    await API.deleteCourse(cid);
+    toast('课程已删除', 'success');
+    // 修复：同步从缓存 my_allCourses 中移除已删除课程，避免「分配课程」弹窗仍展示该条目
+    my_allCourses = my_allCourses.filter(function(c){ return c.id !== cid; });
+    // 刷新当前班级课程列表
+    if (my_classId) {
+      var cr = await API.getClassCourses(my_classId);
+      my_renderClassCourses(cr.courses || []);
+    }
+  } catch(e) { toast('删除失败: ' + e.message, 'error'); }
+}
+
+// ===== SELECT CLASS =====
+if (API.getCurrentUser() && (API.getCurrentUser().role === 'admin')) {
+  var pendingBtn = document.getElementById('admin-pending-btn');
+  
+}
+
+
+
+function my_renderClassCourses(courses) {
+  var area = document.getElementById('class-courses-area');
+  // Also populate analytics dropdown
+  var sel = document.getElementById('analytics-course-select');
+  sel.innerHTML = '<option value="">请选择课程</option>';
+  courses.forEach(function(c) {
+    sel.innerHTML += '<option value="'+c.id+'">'+c.name+'</option>';
+  });
+  // Render course cards
+  var html = '<div class="grid grid-cols-2 gap-3">';
+  if (!courses.length) html += '<div class="col-span-2 bg-amber-400/10 border border-amber-400/20 rounded-xl p-6 text-center"><iconify-icon class="text-amber-400 text-2xl mb-2" icon="lucide:inbox"></iconify-icon><p class="text-amber-400 text-sm font-medium">该班级暂无课程</p><p class="text-amber-300 text-xs mt-1">点击右上角"分配课程"或"创建课程"开始</p></div>';
+  courses.forEach(function(c) {
+    var icons = {'hive':'simple-icons:apachehive','hadoop':'simple-icons:apachehadoop','spark':'simple-icons:apachespark','hbase':'simple-icons:apachehbase','kafka':'simple-icons:apachekafka','zookeeper':'simple-icons:apache','hdfs':'simple-icons:apachehadoop','yarn':'simple-icons:apache','flume':'simple-icons:apache','sqoop':'simple-icons:apache','hql':'simple-icons:apachehive','pig':'simple-icons:apache','mapreduce':'simple-icons:apachehadoop','namenode':'simple-icons:apachehadoop','doris':'simple-icons:apache','wordcount':'lucide:file-text','topn':'lucide:bar-chart-4','shuffle':'lucide:shuffle'};
+    var name = c.name.toLowerCase();
+    var icon = 'lucide:book-open';
+    Object.keys(icons).forEach(function(k) { if (name.indexOf(k) >= 0) icon = icons[k]; });
+    html += '<div class="bg-zinc-900 border border-white/10 rounded-xl p-5 cursor-pointer hover:border-lime-400/40 hover:bg-zinc-800/80 hover:shadow-md transition-all group course-card" data-cname="'+c.name.replace(/"/g,'&quot;')+'" onclick="my_openCourse('+c.id+',\''+c.name+'\')"><div class="flex items-start gap-3"><div class="w-10 h-10 bg-lime-400/10 rounded-xl flex items-center justify-center flex-none group-hover:bg-lime-400/20 transition-colors"><iconify-icon class="text-lime-300 text-lg" icon="'+icon+'"></iconify-icon></div><div class="flex-1 min-w-0"><div class="flex items-center justify-between"><div class="text-sm font-semibold text-zinc-50 truncate group-hover:text-lime-300 transition-colors">'+c.name+'</div><button class="px-2 py-0.5 rounded-full text-xs bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 opacity-0 group-hover:opacity-100 transition-opacity" onclick="event.stopPropagation();my_deleteCourse('+c.id+',this)"><iconify-icon icon="lucide:trash-2" class="align-middle"></iconify-icon> 删除</button></div><div class="text-xs text-zinc-500 mt-1">'+(c.subtask_count||0)+' 个子任务</div></div></div></div>';
+  });
+  html += '</div>';
+  area.innerHTML = html;
+  document.getElementById('subtask-detail').classList.add('hidden');
+}
+
+async function my_openCourse(courseId, courseName) {
+  my_currentCourseId = courseId;
+  document.getElementById('drawer-title').innerText = courseName;
+  document.getElementById('drawer-body').innerHTML = '<p class="text-zinc-500 text-sm text-center py-8">加载中...</p>';
+  my_showDrawer();
+  try {
+    var r = await API.getSubtasks(courseId);
+    var tasks = r.subtasks || [];
+    var techIcons = {'hive':'simple-icons:apachehive','hadoop':'simple-icons:apachehadoop','spark':'simple-icons:apachespark','hbase':'simple-icons:apachehbase','kafka':'simple-icons:apachekafka','zookeeper':'simple-icons:apache','hdfs':'simple-icons:apachehadoop','yarn':'simple-icons:apache','flume':'simple-icons:apache','hql':'simple-icons:apachehive','mapreduce':'simple-icons:apachehadoop'};
+    var html = tasks.length === 0 ? '<p class="text-zinc-500 text-center py-8">暂无子任务，请先创建</p>' : '';
+    tasks.forEach(function(t, i) {
+      var name = t.name.toLowerCase(), icon = 'lucide:circle';
+      Object.keys(techIcons).forEach(function(k) { if (name.indexOf(k) >= 0) icon = techIcons[k]; });
+      html += '<div class="border border-white/10 rounded-xl p-4 mb-3 hover:border-lime-400/40 transition-colors"><div class="flex items-start gap-3"><div class="w-7 h-7 rounded-full bg-lime-400/10 flex items-center justify-center flex-none"><iconify-icon class="text-lime-300 text-xs" icon="'+icon+'"></iconify-icon></div><div class="flex-1 min-w-0"><div class="text-sm font-semibold text-zinc-50">'+(i+1)+'. '+t.name+'</div><code class="block text-xs text-zinc-400 mt-1.5 bg-zinc-950 px-2 py-1 rounded font-mono">'+t.command+'</code><div class="text-xs text-emerald-400 mt-1">'+t.knowledge_text+'</div></div></div></div>';
+    });
+    document.getElementById('drawer-body').innerHTML = html;
+  } catch(e) { document.getElementById('drawer-body').innerHTML = '<p class="text-rose-400 text-center py-8">加载失败</p>'; }
+}
+
+
+function my_showDrawer() {
+  document.getElementById('course-drawer').classList.remove('translate-x-full');
+  document.getElementById('drawer-overlay').classList.remove('hidden');
+}
+
+function my_closeDrawer() {
+  document.getElementById('course-drawer').classList.add('translate-x-full');
+  document.getElementById('drawer-overlay').classList.add('hidden');
+}
+
+// ===== ASSIGN COURSE =====
+function my_showAssign() {
+  if (!my_classId) return;
+  var assigned = []; document.querySelectorAll('#class-courses-area span').forEach(function(s){ var m = s.onclick?.toString().match(/my_openCourse\((\d+)/); if (m) assigned.push(parseInt(m[1])); });
+  var uid = (API.getCurrentUser() || {}).id;
+  var html = '<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onclick="this.remove()"><div class="bg-zinc-900 rounded-2xl border border-white/10 w-full max-w-md p-6 shadow-2xl" onclick="event.stopPropagation()"><h3 class="text-lg font-bold mb-4 text-zinc-50">分配课程</h3><div class="space-y-2 max-h-80 overflow-y-auto">';
+  var cnt = 0;
+  my_allCourses.forEach(function(c) {
+    if (assigned.indexOf(c.id) >= 0) return;
+    cnt++;
+    // 归属权限标识：全站公开 / 待审核 / 我的课程
+    var badge = '';
+    if (c.is_public === 1) badge = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-400/10 text-emerald-400">全站公开'+(c.teacher_name?' · '+c.teacher_name:'')+'</span>';
+    else if (c.is_public === 2) badge = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-400/10 text-amber-400">待审核</span>';
+    else badge = '<span class="px-1.5 py-0.5 rounded text-[10px] '+(c.teacher_id === uid ? 'bg-lime-400/10 text-lime-300' : 'bg-white/5 text-zinc-400')+'">'+(c.teacher_id === uid ? '我的课程' : '私有')+'</span>';
+    html += '<div class="flex justify-between items-center p-2 border border-white/10 rounded hover:bg-white/5"><span class="text-sm text-zinc-300 flex items-center gap-2">'+c.name+badge+'</span><button class="px-2 py-1 rounded-full bg-lime-400 text-zinc-950 text-xs font-semibold" onclick="my_doAssign('+c.id+')\">添加</button></div>';
+  });
+  if (!cnt) html += '<p class="text-zinc-500 text-sm text-center py-4">所有课程已分配</p>';
+  html += '</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function my_doAssign(cid) {
+  await API.assignCourseToClass(my_classId, cid);
+  document.querySelector('.fixed.inset-0\\.z-50')?.remove();
+  my_selectClass(my_classId);
+}
+
+// ===== CREATE CLASS =====
+function my_showCreateClass() {
+  document.getElementById('input-class-name').value = '';
+  document.getElementById('input-class-code').value = '系统自动分配';
+  document.getElementById('modal-class').classList.remove('hidden');
+}
+
+async function my_createClass() {
+  var n = document.getElementById('input-class-name').value.trim();
+  if (!n) return;
+  await API.createClass(n, '');
+  my_closeModal('modal-class');
+  await my_load();
+}
+
+// ===== CREATE COURSE =====
+function my_showCreateCourse() {
+  document.getElementById('input-course-name').value = '';
+  document.getElementById('input-course-desc').value = '';
+  document.getElementById('input-is-public').checked = false;
+  document.getElementById('modal-course').classList.remove('hidden');
+}
+
+async function my_saveCourse() {
+  var name = document.getElementById('input-course-name').value.trim();
+  var desc = document.getElementById('input-course-desc').value.trim();
+  var pub = document.getElementById('input-is-public').checked;
+  if (!name) return;
+  var body = { name: name, description: desc, is_public: pub };
+  if (window._aiSubtasks && window._aiSubtasks.length > 0) {
+    body.subtasks = window._aiSubtasks.map(function(s) {
+      return { name: s.name, command: s.command || '', expected_output: s.expected_output || '', knowledge_text: s.knowledge_text || '' };
+    });
+  }
+  var res = await apiFetch('/courses', { method: 'POST', body: JSON.stringify(body) });
+  my_closeModal('modal-course');
+  // 勾选「全站公开」→ 提示已提交审核；未勾选 → 提示创建成功
+  if (pub) { toast('已提交全站公开申请，等待管理员审核', 'success'); }
+  else { toast('课程已创建', 'success'); }
+  // 自动分配到当前班级
+  if (my_classId && res && res.id) {
+    try { await API.assignCourseToClass(my_classId, res.id); } catch(e) {}
+  }
+  // 刷新当前班级课程
+  if (my_classId) {
+    var cr = await API.getClassCourses(my_classId);
+    my_renderClassCourses(cr.courses || []);
+  }
+  // 刷新可分配课程缓存（确保新建课程在「分配课程」弹窗中可见、状态正确）
+  try {
+    var ar2 = await API.getCourses('teacher');
+    my_allCourses = Array.isArray(ar2) ? ar2 : (ar2.courses || []);
+  } catch(e) {}
+}
+
+// ── AI 辅助生成 ──
+var _aiFile = null;
+function ai_onFileChange(input) {
+  _aiFile = input.files[0];
+  document.getElementById('ai-file-name').innerText = _aiFile ? _aiFile.name : '未选择文件';
+}
+
+async function aiGenerateCourse() {
+  var prompt = document.getElementById('input-ai-prompt').value.trim();
+  if (!prompt) { document.getElementById('input-ai-prompt').focus(); return; }
+  var btn = document.getElementById('btn-ai-generate');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> AI 生成中...';
+  try {
+    // 文件内容只取前10行拼入 prompt，不把整个文件发给后端（避免超 1MB 限制）
+    var finalPrompt = prompt;
+    if (_aiFile) {
+      var fileText = await new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function() { resolve(reader.result); };
+        reader.onerror = reject;
+        reader.readAsText(_aiFile.slice(0, 5000));  // 只读前 5KB
+      });
+      var lines = fileText.split('\n').slice(0, 10).join('\n');
+      finalPrompt = '数据文件 ' + _aiFile.name + ' 预览（前10行）：\n' + lines + '\n\n课程主题：' + prompt;
+    }
+    var r = await fetch('/api/ai/generate-course', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: finalPrompt }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (localStorage.getItem('datatutor_token') || '')
+      }
+    });
+    if (!r.ok) { var e = await r.json().catch(function(){}); throw new Error((e&&e.error)||'AI 服务异常'); }
+    var data = await r.json();
+    document.getElementById('input-course-name').value = data.name || '';
+    document.getElementById('input-course-desc').value = data.description || '';
+    var subtasks = data.subtasks || [];
+    if (subtasks.length > 0) {
+      window._aiSubtasks = subtasks;
+      var box = document.getElementById('ai-preview-box');
+      var content = document.getElementById('ai-preview-content');
+      content.innerHTML = '<div class=\"font-semibold text-sm mb-2 text-cyan-300\">生成子任务 ('+subtasks.length+'项)：</div>' +
+        subtasks.map(function(s,i){ return '<div class=\"text-xs text-zinc-400 py-1 border-b border-white/5 last:border-0\">'+(i+1)+'. '+s.name+' <code class=\"text-[10px] bg-zinc-800 px-1 rounded font-mono\">'+(s.command||'')+'</code></div>'; }).join('');
+      box.classList.remove('hidden');
+    }
+  } catch(e) {
+    alert('AI 生成失败: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<iconify-icon icon=\"lucide:sparkles\" style=\"pointer-events:none\"></iconify-icon> AI 生成实训大纲';
+}
+
+// ===== TABS =====
+function my_switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('border-lime-400','text-lime-300'); });
+  var btn = document.querySelector('.tab-btn[data-tab="'+tab+'"]');
+  if (btn) btn.classList.add('border-lime-400','text-lime-300');
+  document.getElementById('tab-courses').classList.toggle('hidden', tab!=='courses');
+  document.getElementById('tab-analytics').classList.toggle('hidden', tab!=='analytics');
+  if (tab==='analytics') my_loadAnalytics();
+}
+
+async function my_loadAnalytics() {
+  var cid = document.getElementById('analytics-course-select').value;
+  if (!my_classId || !cid) return;
+  my_currentCourseId = parseInt(cid);
+  try {
+    var d = await apiFetch('/analytics/class/'+my_classId+'?course_id='+my_currentCourseId);
+    document.getElementById('ana-students').innerText = d.total_students||0;
+    document.getElementById('ana-avg').innerText = d.avg_tasks||0;
+    document.getElementById('ana-rate').innerText = (d.complete_rate||0)+'%';
+
+    // Student progress + reports
+    var pr = await API.getClassProgress(my_classId, my_currentCourseId);
+    var students = pr.students || [];
+    // Also get reports for this course
+    var reportsMap = {};
+    try {
+      var rr = await apiFetch('/reports?course_id='+my_currentCourseId);
+      (rr.reports||[]).forEach(function(r) { if (!reportsMap[r.student_id]) reportsMap[r.student_id] = r; });  // 只保留每个学生最新报告(desc最新在前, 2026-08-29 修旧报告覆盖)
+    } catch(e) {}
+
+    var sh = '';
+    var grades = {'A':'bg-emerald-400/10 text-emerald-400','B':'bg-cyan-400/10 text-cyan-300','C':'bg-amber-400/10 text-amber-400','D':'bg-orange-400/10 text-orange-400','F':'bg-rose-400/10 text-rose-400'};
+    students.forEach(function(s) {
+      var pct = s.total > 0 ? Math.round(s.progress/s.total*100) : 0;
+      var bc = pct >= 100 ? 'bg-emerald-400' : pct > 0 ? 'bg-lime-400' : 'bg-zinc-700';
+      var rep = reportsMap[s.student_id];
+      var gradeHtml = '';
+      if (rep && rep.grade) {
+        gradeHtml = '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer hover:scale-110 transition-transform '+(grades[rep.grade]||'bg-white/5 text-zinc-400')+'" onclick="my_showReport('+s.student_id+')">'+rep.grade+'</span>';
+      } else if (pct >= 100) {
+        gradeHtml = '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400/10 text-amber-400">待评</span>';
+      }
+      sh += '<div class="flex items-center gap-3 py-1 border-b border-white/5 last:border-0"><span class="text-xs w-20 truncate font-medium text-zinc-300">'+s.name+'</span><div class="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden"><div class="h-full '+bc+' rounded-full" style="width:'+pct+'%"></div></div><span class="text-xs text-zinc-500 w-8 text-right font-mono">'+pct+'%</span>'+gradeHtml+'</div>';
+    });
+    document.getElementById('student-progress').innerHTML = sh || '<p class="text-zinc-500 text-xs py-4">暂无学生</p>';
+  } catch(e) { console.error(e); }
+}
+
+// ===== UTILS =====
+function my_closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// Ensure API methods
+if (!API.getClassList) API.getClassList = function(){ return apiFetch('/classes/list'); };
+if (!API.getClassCourses) API.getClassCourses = function(id){ return apiFetch('/courses/class/'+id); };
+if (!API.deleteClass) API.deleteClass = function(id){ return apiFetch('/classes/'+id, { method: 'DELETE' }); };
+if (!API.deleteCourse) API.deleteCourse = function(id){ return apiFetch('/courses/'+id, { method: 'DELETE' }); };
+if (!API.createClass) API.createClass = function(name,code){ return apiFetch('/classes/create', { method: 'POST', body: JSON.stringify({name:name,class_code:code}) }); };
+if (!API.assignCourseToClass) API.assignCourseToClass = function(classId,courseId){ return apiFetch('/classes/assign_course', { method: 'POST', body: JSON.stringify({class_id:classId,course_id:courseId}) }); };
+if (!API.getSubtasks) API.getSubtasks = function(courseId){ return apiFetch('/courses/'+courseId+'/subtasks'); };
+if (!API.getCourses) API.getCourses = function(){ return apiFetch('/courses'); };
+if (!API.getClassProgress) API.getClassProgress = function(classId){ return apiFetch('/classes/'+classId+'/progress'); };
+
+async function my_showReport(studentId) {
+  var cid = document.getElementById('analytics-course-select').value;
+  if (!studentId || !cid) return;
+  document.getElementById('report-preview-title').innerText = '加载中...';
+  document.getElementById('report-preview-content').innerHTML = '<p class="text-zinc-500 text-center py-8">加载中...</p>';
+  document.getElementById('modal-report-preview').classList.remove('hidden');
+  try {
+    var rr = await apiFetch('/reports/student/'+studentId);
+    var reports = rr.reports || [];
+    var rep = reports.find(function(r){ return r.course_id == cid; });
+    if (rep && rep.content) {
+      document.getElementById('report-preview-title').innerText = '实训报告';
+      document.getElementById('report-preview-content').innerHTML = '<div style="white-space:pre-wrap">'+rep.content+'</div>';
+    } else {
+      document.getElementById('report-preview-content').innerHTML = '<p class="text-zinc-500 text-center py-8">该学生暂无此课程的报告</p>';
+    }
+  } catch(e) {
+    document.getElementById('report-preview-content').innerHTML = '<p class="text-rose-400 text-center py-8">加载失败</p>';
+  }
+}
+
+
+
+
+
+</script>
+
+<!-- Report Preview -->
+<div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" id="modal-report-preview">
+  <div class="bg-zinc-900 rounded-2xl border border-white/10 w-full max-w-3xl max-h-[80vh] flex flex-col shadow-2xl" onclick="event.stopPropagation()">
+    <div class="flex-none flex items-center justify-between px-6 py-4 border-b border-white/10">
+      <h3 class="font-bold text-zinc-50" id="report-preview-title">实训报告</h3>
+      <button class="text-zinc-500 hover:text-zinc-200" onclick="my_closeModal('modal-report-preview')"><iconify-icon icon="lucide:x" class="text-xl"></iconify-icon></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-6 text-sm leading-relaxed text-zinc-300" id="report-preview-content"></div>
+  </div>
+</div>
+
+
+<div class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" id="modal-pending">
+  <div class="bg-zinc-900 rounded-2xl border border-white/10 w-full max-w-2xl max-h-[75vh] flex flex-col shadow-2xl" onclick="event.stopPropagation()">
+    <div class="flex-none flex items-center justify-between px-6 py-4 border-b border-white/10">
+      <h3 class="font-bold text-zinc-50" id="modal-pending-title">待审核课程</h3>
+      <button class="text-zinc-500 hover:text-zinc-200" onclick="my_closeModal(\'modal-pending\')"><iconify-icon icon="lucide:x" class="text-xl"></iconify-icon></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-6" id="pending-list"></div>
+  </div>
+</div>
+
+<script>
+    // 教师工作台背景粒子场：必须放在 body 末尾 —— canvas 在 body 里，
+    // 若在 head 执行，init() 时 getElementById 还拿不到 canvas，会静默不启动
+    if (window.DTParticles) {
+        DTParticles.init({ accent: '#BEF264', density: 1.1, linkDistance: 126, cursorRadius: 155, clickBurst: 10 });
+    }
+</script>
+</body>
+</html>

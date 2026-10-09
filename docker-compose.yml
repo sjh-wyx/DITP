@@ -1,0 +1,74 @@
+services:
+  app:
+    build: .
+    image: datatutor-app:latest
+    container_name: datatutor-app
+    network_mode: host
+    # 与镜像 Dockerfile 的 WORKDIR(/app) 不同：挂载源码后从 /app/backend 启动，
+    # 使 app.py 的 static_folder('../frontend') 与 uploads 目录都落在挂载卷上
+    working_dir: /app/backend
+    command: ["python", "app.py"]
+    volumes:
+      # 源码挂载：改前端即时生效，改后端重启容器即可（不必重建镜像）
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      # 创建学生实训容器所需：app 通过 Docker Engine API 调用宿主机守护进程
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - XUNFEI_API_KEY=${XUNFEI_API_KEY}
+      - XUNFEI_API_SECRET=${XUNFEI_API_SECRET}
+      - XUNFEI_FLOW_TRAINING=${XUNFEI_FLOW_TRAINING}
+      - XUNFEI_FLOW_KNOWLEDGE=${XUNFEI_FLOW_KNOWLEDGE}
+      - XUNFEI_FLOW_TEACHER=${XUNFEI_FLOW_TEACHER}
+      - XUNFEI_FLOW_REPORT=${XUNFEI_FLOW_REPORT}
+      - MYSQL_URL=${MYSQL_URL}
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - DORIS_HOST=127.0.0.1
+      - DORIS_PORT=9030
+      - DORIS_USER=root
+      - DORIS_PASSWORD=
+      - DORIS_DB=datatutor_analytics
+      # 学生实训容器参数。STUDENT_* 必须是宿主机路径：
+      # Docker 守护进程按宿主机命名空间解析 bind 源，路径不存在则容器起不来
+      - DOCKER_SOCKET=/var/run/docker.sock
+      - STUDENT_IMAGE=datatutor-student
+      - STUDENT_UPLOADS_DIR=${PWD}/backend/uploads
+      - STUDENT_PACKAGES_DIR=/opt/packages
+      # 初始化脚本（init_users.py）用的连接参数：host 网络下 MySQL 走宿主机端口
+      - MYSQL_HOST=127.0.0.1
+      - MYSQL_PORT=3307
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      # 未部署 Doris 时置 1，跳过分析库建表
+      - SKIP_DORIS=
+      - VM_HOST=127.0.0.1
+      - VM_USER=root
+      - VM_PASSWORD=${VM_PASSWORD}
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: datatutor-redis
+    network_mode: host
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+
+  mysql:
+    image: mysql:8.0
+    container_name: datatutor-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: datatutor
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

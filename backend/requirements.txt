@@ -1,0 +1,15 @@
+flask>=3.0
+flask-cors>=5.0
+flask-sqlalchemy>=3.1
+flask-socketio>=5.3
+eventlet>=0.39
+flask-limiter>=3.5
+pyjwt>=2.8
+werkzeug>=3.0
+python-dotenv>=1.0
+requests>=2.31
+paramiko>=3.4
+pymysql>=1.1
+redis>=5.0
+prometheus-client>=0.21
+Pillow>=10.0

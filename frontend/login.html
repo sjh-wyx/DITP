@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>登录 - 数智实训平台</title>
+<link rel="icon" type="image/png" href="/static/img/logo.png"/>
+<script src="https://modao.cc/agent-py/static/source/js/tailwindcss.js"></script>
+<script src="https://modao.cc/agent-py/static/source/js/iconify-icon.min.js"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; margin: 0; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* 磨砂玻璃：0.72 偏透，粒子层上来后文字会被穿透，提到 0.86 保住可读性 */
+    .glass-effect { background: rgba(19,19,22,0.86); backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%); }
+
+    @keyframes float { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-20px) rotate(5deg); } }
+    @keyframes float2 { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(15px) rotate(-3deg); } }
+    @keyframes pulse-slow { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+    @keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    @keyframes slide-up { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .animate-float { animation: float 6s ease-in-out infinite; }
+    .animate-float2 { animation: float2 8s ease-in-out infinite; }
+    .animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
+    .animate-slide-up { animation: slide-up 0.6s ease-out forwards; }
+
+    .input-focus-ring:focus { box-shadow: 0 0 0 3px rgba(190,242,100,0.18), 0 0 0 1px #BEF264; }
+
+    .btn-login { background: linear-gradient(135deg, #BEF264 0%, #A3E635 100%); background-size: 200% 200%; animation: gradient-shift 3s ease infinite; color: #09090B; }
+    .btn-login:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(190,242,100,0.35); }
+
+    .brand-bg { background: linear-gradient(135deg, #09090B 0%, #152822 45%, #1C2F27 100%); background-size: 300% 300%; animation: gradient-shift 8s ease infinite; }
+
+    .dot-grid { background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 24px 24px; }
+
+    .logo-glow { filter: drop-shadow(0 0 24px rgba(190,242,100,0.35)); }
+
+    /* 过场动画 */
+    .splash-overlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: #09090B;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .splash-overlay.active { opacity: 1; pointer-events: all; }
+
+    @keyframes splash-in { 0% { transform: scale(0.3); opacity: 0; filter: blur(20px); } 40% { transform: scale(1.08); opacity: 1; filter: blur(0); } 60% { transform: scale(0.96); } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes splash-fade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes bar-fill { from { width: 0%; } to { width: 100%; } }
+    @keyframes ring-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes particle-float { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-120px) scale(0); opacity: 0; } }
+
+    .splash-logo { animation: splash-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    .splash-sub { animation: splash-fade 0.6s 0.5s ease-out forwards; opacity: 0; }
+    .splash-bar { animation: splash-fade 0.5s 0.8s ease-out forwards; opacity: 0; }
+    .splash-tip { animation: splash-fade 0.5s 1.2s ease-out forwards; opacity: 0; }
+
+    .splash-ring { position: absolute; border: 1px solid rgba(190,242,100,0.25); border-radius: 50%; }
+    .splash-ring-1 { width: 180px; height: 180px; animation: ring-rotate 8s linear infinite; }
+    .splash-ring-2 { width: 280px; height: 280px; animation: ring-rotate 12s linear infinite reverse; }
+    .splash-ring-3 { width: 400px; height: 400px; animation: ring-rotate 18s linear infinite; }
+
+    .splash-particle {
+        position: absolute; width: 3px; height: 3px; background: #BEF264; border-radius: 50%;
+        animation: particle-float 2s ease-out forwards;
+    }
+
+    .progress-glow {
+        height: 3px; border-radius: 2px;
+        background: linear-gradient(90deg, #BEF264, #A3E635, #4ADE80, #2DD4BF);
+        background-size: 300% 100%; animation: gradient-shift 2s ease infinite;
+    }
+
+    .role-tab { position: relative; cursor: pointer; transition: all 0.3s; }
+    .role-tab.active { color: #BEF264; font-weight: 700; }
+    .role-tab.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: #BEF264; border-radius: 2px; }
+    .role-tab:not(.active) { color: #71717A; }
+    
+    .captcha-img { transition: opacity 0.2s; }
+    .captcha-img.loading { opacity: 0.5; }
+
+    /* 静态留档模式（?fx=static）：只用于截图/演示核对，不影响正常访问 */
+    .fx-static *, .fx-static *::before, .fx-static *::after {
+        animation: none !important; transition: none !important; opacity: 1 !important;
+    }
+</style>
+<script>
+    // 静态留档模式：?fx=static —— 提前关掉动画，避免截图/演示时抓到入场中间帧
+    if (/[?&]fx=static/.test(location.search)) document.documentElement.classList.add('fx-static');
+</script>
+</head>
+<body class="bg-zinc-950 min-h-screen flex items-center justify-center p-4 overflow-hidden">
+
+<!-- 背景粒子场（Canvas，纯装饰层，引擎见 static/js/particles.js） -->
+<canvas aria-hidden="true" id="dt-particles" style="position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block;"></canvas>
+
+<!-- 背景光晕 + 点阵（叠在粒子层之上，保证粒子可见） -->
+<div class="fixed inset-0 overflow-hidden pointer-events-none relative">
+    <div class="absolute top-[15%] left-[10%] w-[30%] h-[30%] rounded-full bg-lime-400/10 blur-[100px] animate-pulse-slow"></div>
+    <div class="absolute bottom-[20%] right-[5%] w-[35%] h-[35%] rounded-full bg-emerald-400/8 blur-[120px] animate-pulse-slow" style="animation-delay: 1.5s;"></div>
+    <div class="absolute top-[40%] right-[30%] w-[20%] h-[20%] rounded-full bg-cyan-400/6 blur-[80px] animate-pulse-slow" style="animation-delay: 0.8s;"></div>
+    <div class="dot-grid absolute inset-0"></div>
+</div>
+
+<!-- 登录卡片 -->
+<div class="max-w-5xl w-full glass-effect rounded-3xl shadow-[0_0_60px_rgba(190,242,100,0.08)] overflow-hidden flex flex-col md:flex-row border border-white/10 animate-slide-up" style="animation-delay: 0.1s;">
+
+    <!-- 左侧：品牌展示 -->
+    <div class="md:w-1/2 brand-bg p-12 text-white flex flex-col justify-between relative overflow-hidden">
+        <div class="dot-grid absolute inset-0 opacity-30"></div>
+        <!-- 浮动装饰 -->
+        <div class="absolute top-12 right-12 animate-float opacity-20">
+            <iconify-icon icon="lucide:database" style="font-size: 180px;"></iconify-icon>
+        </div>
+        <div class="absolute bottom-20 left-10 animate-float2 opacity-10" style="animation-delay: 2s;">
+            <iconify-icon icon="lucide:cpu" style="font-size: 100px;"></iconify-icon>
+        </div>
+
+        <div class="relative z-10">
+            <div class="flex items-center gap-3 mb-10 logo-glow">
+                <img src="/static/img/logo.png" alt="数智实训平台" class="h-12 w-12 rounded-xl bg-white/15 p-1 backdrop-blur-sm border border-white/20">
+                <span class="text-3xl font-extrabold tracking-tight">数智实训平台</span>
+            </div>
+            <h1 class="text-4xl font-black mb-5 leading-tight">
+                数智实训<br/>
+                <span class="bg-gradient-to-r from-lime-300 to-emerald-300 bg-clip-text text-transparent">智能副驾</span>
+            </h1>
+            <p class="text-zinc-300 text-lg leading-relaxed">不动手学不会。让数智实训平台坐你旁边，<br/>每一个报错、每一次配置、每一步操作，<br/>都有我在你身后。</p>
+        </div>
+
+        <div class="relative z-10 mt-8">
+            <div class="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm hover:bg-white/8 transition-colors duration-300">
+                <div class="flex -space-x-2">
+                    <img alt="avatar" class="w-9 h-9 rounded-full border-2 border-lime-400/60" src="https://modao.cc/agent-py/media/generated_images/2026-06-26/da9b842326ac4ae3b62884ae4aa45c44.jpg"/>
+                    <img alt="avatar" class="w-9 h-9 rounded-full border-2 border-lime-400/60" src="https://modao.cc/agent-py/media/generated_images/2026-06-26/a8854783ac184603b89311d2a4851970.jpg"/>
+                    <img alt="avatar" class="w-9 h-9 rounded-full border-2 border-lime-400/60" src="https://modao.cc/agent-py/media/generated_images/2026-06-26/da9b842326ac4ae3b62884ae4aa45c44.jpg"/>
+                </div>
+                <div>
+                    <div class="text-sm font-semibold" id="stat-students">-- 学员</div>
+                    <div class="text-xs text-lime-300">已注册</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：登录表单 -->
+    <div class="md:w-1/2 p-8 md:p-12 flex flex-col justify-center bg-zinc-950/40 backdrop-blur-sm overflow-y-auto max-h-[90vh]">
+        <div class="mb-8">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex gap-6" id="role-tabs">
+                    <span class="role-tab active text-lg" data-role="student" onclick="switchRole('student')" id="tab-student">学生登录</span>
+                    <span class="role-tab text-lg" data-role="teacher" onclick="switchRole('teacher')" id="tab-teacher">教师登录</span>
+                </div>
+                <a class="text-sm text-lime-400 hover:text-lime-300 font-medium cursor-pointer" id="mode-toggle" onclick="toggleMode()">注册账号</a>
+            </div>
+            <h2 class="text-2xl font-bold text-zinc-50 mb-1" id="login-title">欢迎回来，同学</h2>
+            <p class="text-zinc-400 text-sm" id="login-sub">请输入账号开启今日实训之旅</p>
+            <div class="hidden bg-rose-500/10 border border-rose-400/30 text-rose-400 px-4 py-3 rounded-xl text-sm mt-3" id="error-msg"></div>
+        </div>
+
+        <form class="space-y-4" onsubmit="handleLogin(event)">
+            <div>
+                <label class="block text-sm font-semibold text-zinc-300 mb-1.5" id="label-user">用户名 / 邮箱</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-500">
+                        <iconify-icon icon="lucide:user"></iconify-icon>
+                    </span>
+                    <input class="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-white/10 rounded-xl input-focus-ring transition-all text-sm text-zinc-50 placeholder-zinc-500" placeholder="admin / admin123" required type="text" id="username"/>
+                </div>
+            </div>
+
+            <div id="teacher-fields" class="hidden space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-zinc-300 mb-1.5">教师工号</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-500">
+                            <iconify-icon icon="lucide:id-card"></iconify-icon>
+                        </span>
+                        <input class="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-white/10 rounded-xl input-focus-ring transition-all text-sm text-zinc-50 placeholder-zinc-500" placeholder="T2024001" type="text" id="teacher-id"/>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label class="block text-sm font-semibold text-zinc-300">密码</label>
+                    <a class="text-xs text-lime-400 hover:text-lime-300 font-medium" href="#">忘记密码？</a>
+                </div>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-500">
+                        <iconify-icon icon="lucide:lock"></iconify-icon>
+                    </span>
+                    <input class="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-white/10 rounded-xl input-focus-ring transition-all text-sm text-zinc-50 placeholder-zinc-500" placeholder="••••••••" required type="password" id="password"/>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input class="w-4 h-4 text-lime-400 border-white/15 rounded focus:ring-lime-400" id="remember" type="checkbox"/>
+                <label class="text-sm text-zinc-400" for="remember">记住登录状态</label>
+            </div>
+
+            <div class="space-y-2 hidden" id="register-fields">
+                <!-- 返回登录入口（注册模式专属，明显可见） -->
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-zinc-500">填写以下信息完成注册</span>
+                    <a class="text-xs text-lime-400 hover:text-lime-300 font-semibold cursor-pointer inline-flex items-center gap-1" onclick="toggleMode()">
+                        <iconify-icon icon="lucide:arrow-left"></iconify-icon> 返回登录
+                    </a>
+                </div>
+                <!-- 学号/工号 与 确认密码 并排，压缩表单高度 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div id="register-extra-field">
+                        <label class="block text-sm font-semibold text-zinc-300 mb-1.5" id="register-extra-label">学号</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-500">
+                                <iconify-icon icon="lucide:id-card"></iconify-icon>
+                            </span>
+                            <input class="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl input-focus-ring transition-all text-sm text-zinc-50 placeholder-zinc-500" placeholder="请输入学号" type="text" id="register-extra"/>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-zinc-300 mb-1.5">确认密码</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-500">
+                                <iconify-icon icon="lucide:lock-keyhole"></iconify-icon>
+                            </span>
+                            <input class="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl input-focus-ring transition-all text-sm text-zinc-50 placeholder-zinc-500" placeholder="再次输入密码" type="password" id="confirm-password"/>
+                        </div>
+                    </div>
+                </div>
+                <!-- ===== 验证码 ===== -->
+                <div>
+                    <label class="block text-sm font-semibold text-zinc-300 mb-1.5">验证码</label>
+                    <div class="flex gap-2 items-center">
+                        <img id="captcha-img" src="" alt="验证码" class="captcha-img h-11 rounded-lg border border-white/10 cursor-pointer" onclick="refreshCaptcha()" style="width:120px"/>
+                        <span class="text-xs text-zinc-500 cursor-pointer hover:text-lime-400" onclick="refreshCaptcha()">换一张</span>
+                        <input class="flex-1 pl-3 pr-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl input-focus-ring transition-all text-sm text-zinc-50 placeholder-zinc-500" placeholder="4位数字" type="text" id="captcha-code" maxlength="4" autocomplete="off"/>
+                    </div>
+                </div>
+            </div>
+
+            <button class="w-full btn-login text-zinc-950 font-bold py-3.5 rounded-full flex items-center justify-center gap-2 group relative overflow-hidden" type="submit" id="login-btn">
+                <span id="login-text">进入实训空间</span>
+                <iconify-icon class="group-hover:translate-x-1 transition-transform text-lg" icon="lucide:arrow-right" id="btn-icon"></iconify-icon>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- 过场动画层 -->
+<div class="splash-overlay" id="splash">
+    <!-- 旋转环 -->
+    <div class="splash-ring splash-ring-1"></div>
+    <div class="splash-ring splash-ring-2"></div>
+    <div class="splash-ring splash-ring-3"></div>
+
+    <!-- 粒子容器 -->
+    <div id="splash-particles" style="position:absolute;inset:0;overflow:hidden;pointer-events:none;"></div>
+
+    <!-- Logo -->
+    <div class="relative z-10 flex flex-col items-center">
+        <div class="splash-logo flex items-center gap-4 mb-6">
+            <img src="/static/img/logo.png" alt="数智实训平台" class="h-16 w-16 rounded-2xl shadow-[0_0_40px_rgba(190,242,100,0.25)]">
+            <span class="text-5xl font-black text-white tracking-tight">数智实训平台</span>
+        </div>
+
+        <p class="splash-sub text-lime-300/80 text-lg mb-8">启动数智实训引擎...</p>
+
+        <!-- 进度条 -->
+        <div class="splash-bar w-72">
+            <div class="flex justify-between text-xs text-zinc-500 mb-2 mono">
+                <span>初始化中</span><span id="splash-pct">0%</span>
+            </div>
+            <div class="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                <div class="progress-glow h-full rounded-full" id="splash-progress" style="width:0%;transition:width 0.3s ease;"></div>
+            </div>
+        </div>
+
+        <p class="splash-tip text-xs text-zinc-500 mt-6 mono" id="splash-tip">加载知识库...</p>
+    </div>
+</div>
+
+<script src="static/js/api.js"></script>
+<script src="static/js/particles.js"></script>
+<script>
+    // 登录页背景粒子场：密度略高、连线略近，突出"数据流动"的第一印象
+    if (window.DTParticles) {
+        DTParticles.init({ accent: '#BEF264', density: 1.4, linkDistance: 142, cursorRadius: 190, clickBurst: 18 });
+    }
+
+    let currentRole = 'student';
+    let currentMode = 'login'; // 'login' | 'register'
+    let captchaId = '';        // 验证码 ID
+
+    function switchRole(role) {
+        currentRole = role;
+        document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.role-tab[data-role="${role}"]`).classList.add('active');
+        var label = document.getElementById('register-extra-label');
+        var input = document.getElementById('register-extra');
+        if (role === 'teacher') { if (label) label.innerText = '教师工号'; if (input) input.placeholder = '请输入工号'; }
+        else { if (label) label.innerText = '学号'; if (input) input.placeholder = '请输入学号'; }
+        updateUI();
+    }
+
+    function toggleMode() {
+        currentMode = currentMode === 'login' ? 'register' : 'login';
+        updateUI();
+        hideError();
+    }
+
+    function hideError() {
+        document.getElementById('error-msg').classList.add('hidden');
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('error-msg');
+        el.innerText = msg;
+        el.classList.remove('hidden');
+    }
+
+    // ===== 验证码 =====
+    function refreshCaptcha() {
+        var img = document.getElementById('captcha-img');
+        if (img) img.classList.add('loading');
+        fetch('/api/auth/captcha').then(function(r) { return r.json(); }).then(function(d) {
+            captchaId = d.captcha_id;
+            if (img) { img.src = d.image; img.classList.remove('loading'); }
+        }).catch(function() {
+            if (img) img.classList.remove('loading');
+        });
+    }
+
+    function updateUI() {
+        const loginTitle = document.getElementById('login-title');
+        const loginSub = document.getElementById('login-sub');
+        const labelUser = document.getElementById('label-user');
+        const loginText = document.getElementById('login-text');
+        const modeToggle = document.getElementById('mode-toggle');
+        const teacherFields = document.getElementById('teacher-fields');
+        const regFields = document.getElementById('register-fields');
+        const rememberRow = document.querySelector('#remember').closest('.flex');
+        const headerBox = loginTitle.closest('.mb-8');
+        const formEl = document.querySelector('form.space-y-4');
+
+        if (currentMode === 'register') {
+            loginTitle.innerText = currentRole === 'teacher' ? '教师注册' : '创建账号';
+            loginSub.innerText = '填写信息加入数智实训平台';
+            loginText.innerText = '注册并登录';
+            modeToggle.innerText = '已有账号？登录';
+            labelUser.innerText = currentRole === 'teacher' ? '教师姓名' : '用户名';
+            document.getElementById('tab-student').innerText = '学生注册';
+            document.getElementById('tab-teacher').innerText = '教师注册';
+            regFields.classList.remove('hidden');
+            rememberRow.classList.add('hidden');
+            // 注册模式压缩间距，防止界面过高
+            if (headerBox) { headerBox.classList.remove('mb-8'); headerBox.classList.add('mb-4'); }
+            if (formEl) { formEl.classList.remove('space-y-4'); formEl.classList.add('space-y-2.5'); }
+            // 注册模式下隐藏 teacher-fields（工号已在 register-fields 中）
+            teacherFields.classList.add('hidden');
+            // 自动加载验证码
+            refreshCaptcha();
+        } else {
+            loginTitle.innerText = currentRole === 'teacher' ? '欢迎回来，老师' : '欢迎回来，同学';
+            loginSub.innerText = currentRole === 'teacher' ? '请输入工号登录，管理班级实训进度' : '请输入账号开启今日实训之旅';
+            loginText.innerText = '进入实训空间';
+            modeToggle.innerText = '注册账号';
+            labelUser.innerText = currentRole === 'teacher' ? '教师姓名' : '用户名 / 邮箱';
+            document.getElementById('tab-student').innerText = '学生登录';
+            document.getElementById('tab-teacher').innerText = '教师登录';
+            regFields.classList.add('hidden');
+            rememberRow.classList.remove('hidden');
+            // 登录模式恢复原始间距
+            if (headerBox) { headerBox.classList.remove('mb-4'); headerBox.classList.add('mb-8'); }
+            if (formEl) { formEl.classList.remove('space-y-2.5'); formEl.classList.add('space-y-4'); }
+            teacherFields.classList.add('hidden');
+        }
+    }
+
+    // ========== 登录 / 注册 处理 ==========
+    function handleLogin(e) {
+        e.preventDefault();
+        const btn = document.getElementById('login-btn');
+        const text = document.getElementById('login-text');
+        const btnIcon = document.getElementById('btn-icon');
+        hideError();
+
+        const username = document.getElementById('username').value.trim();
+        const passwordInput = document.getElementById('password');
+        const password = passwordInput ? passwordInput.value : '';
+
+        if (!username || !password) {
+            showError('请填写完整信息');
+            return;
+        }
+
+        // ===== 注册模式 =====
+        if (currentMode === 'register') {
+            const confirmPw = document.getElementById('confirm-password').value;
+            if (password !== confirmPw) {
+                showError('两次输入的密码不一致');
+                return;
+            }
+            if (password.length < 6) {
+                showError('密码至少需要 6 位');
+                return;
+            }
+            // 验证码检查
+            var captchaCode = document.getElementById('captcha-code').value.trim();
+            if (!captchaCode) {
+                showError('请输入验证码');
+                refreshCaptcha();
+                return;
+            }
+
+            btn.disabled = true;
+            text.innerText = '注册中...';
+            btnIcon.setAttribute('icon', 'lucide:loader-2');
+
+            var extra = document.getElementById('register-extra').value.trim();
+            var body = { username: username, password: password, display_name: username, role: currentRole, captcha_id: captchaId, captcha_code: captchaCode };
+            if (extra) body[currentRole === 'teacher' ? 'teacher_id' : 'student_id'] = extra;
+
+            fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error || '注册失败'); return d; }); })
+            .then(function() {
+                return API.login(username, password, currentRole);
+            }).then(function(loginResult) {
+                localStorage.setItem('datatutor_token', loginResult.token);
+                localStorage.setItem('datatutor_user', JSON.stringify(loginResult.user));
+                runSplash(loginResult.redirect || (currentRole === 'teacher' ? 'teacher.html' : 'hub.html'));
+            }).catch(function(err) {
+                showError(err.message || '注册失败，请稍后重试');
+                btn.disabled = false; text.innerText = '注册并登录';
+                btnIcon.setAttribute('icon', 'lucide:arrow-right');
+                refreshCaptcha(); // 注册失败刷新验证码
+            });
+            return;
+        }
+
+        // ===== 登录模式 =====
+        btn.disabled = true;
+        text.innerText = '验证中...';
+        btnIcon.setAttribute('icon', 'lucide:loader-2');
+
+        API.login(username, password, currentRole).then(function(result) { if (result.user && result.user.role === "admin") result.redirect = "admin.html";
+            localStorage.setItem('datatutor_token', result.token);
+            localStorage.setItem('datatutor_user', JSON.stringify(result.user));
+            runSplash(result.redirect || (currentRole === 'teacher' ? 'teacher.html' : 'hub.html'));
+        }).catch(function(err) {
+            showError(err.message || '登录失败，请检查账号密码');
+            btn.disabled = false;
+            text.innerText = '进入实训空间';
+            btnIcon.setAttribute('icon', 'lucide:arrow-right');
+        });
+    }
+
+    function runSplash(targetUrl) {
+        const splash = document.getElementById('splash');
+        const progressBar = document.getElementById('splash-progress');
+        const pctEl = document.getElementById('splash-pct');
+        const tipEl = document.getElementById('splash-tip');
+        const particlesContainer = document.getElementById('splash-particles');
+
+        splash.classList.add('active');
+
+        for (let i = 0; i < 50; i++) {
+            setTimeout(() => {
+                const p = document.createElement('div');
+                p.className = 'splash-particle';
+                p.style.left = (20 + Math.random() * 60) + '%';
+                p.style.top = (60 + Math.random() * 30) + '%';
+                p.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
+                p.style.animationDelay = (Math.random() * 0.3) + 's';
+                p.style.width = (2 + Math.random() * 3) + 'px';
+                p.style.height = p.style.width;
+                p.style.background = Math.random() > 0.5 ? '#BEF264' : '#A3E635';
+                particlesContainer.appendChild(p);
+            }, i * 20);
+        }
+
+        // 文案口径：平台能力由知识库 RAG + 工作流编排 + 提示词工程承载，不涉及任何模型训练
+        const tips = [
+            '加载知识库...', '初始化 RAG 引擎...', '接入学科知识库...',
+            '连接实训集群...', '检查终端环境...', '一切就绪，出发！'
+        ];
+        let progress = 0;
+        const totalDuration = 2200;
+        const steps = 20;
+        const stepDuration = totalDuration / steps;
+        const stepIncrement = 100 / steps;
+
+        const interval = setInterval(() => {
+            progress = Math.min(100, progress + stepIncrement);
+            progressBar.style.width = progress + '%';
+            pctEl.innerText = Math.round(progress) + '%';
+
+            const tipIdx = Math.min(tips.length - 1, Math.floor((progress / 100) * tips.length));
+            tipEl.innerText = tips[tipIdx];
+
+            if (progress >= 100) {
+                clearInterval(interval);
+                setTimeout(() => {
+                    window.location.href = targetUrl;
+                }, 300);
+            }
+        }, stepDuration);
+    }
+    // 拉取真实统计数据
+    fetch('/api/auth/stats').then(function(r){return r.json();}).then(function(d){
+        document.getElementById('stat-students').innerText = (d.students || 0) + '+ 学员';
+    }).catch(function(){});
+</script>
+</body>
+</html>

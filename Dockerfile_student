@@ -1,0 +1,7 @@
+FROM ubuntu:22.04
+RUN sed -i 's@archive.ubuntu.com@mirrors.aliyun.com@g' /etc/apt/sources.list && apt-get update && apt-get install -y openssh-server wget curl tar vim net-tools iputils-ping && rm -rf /var/lib/apt/lists/*
+RUN mkdir /var/run/sshd && echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config && echo "UsePAM no" >> /etc/ssh/sshd_config
+RUN echo "root:123456" | chpasswd
+RUN useradd -m -s /bin/bash learner && echo "learner:123456" | chpasswd
+EXPOSE 22
+CMD ["/usr/sbin/sshd", "-D"]

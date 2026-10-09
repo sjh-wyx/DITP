@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>个人中心 - 数智实训平台</title>
+<script src="https://modao.cc/agent-py/static/source/js/tailwindcss.js"></script>
+<script src="https://modao.cc/agent-py/static/source/js/iconify-icon.min.js"></script>
+<style>
+  body { background: #09090B; min-height: 100vh; font-family: 'Inter',-apple-system,sans-serif; }
+  .dot-bg { background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0); background-size: 24px 24px; }
+  .stat-card { transition: all 0.3s; }
+  .stat-card:hover { transform: translateY(-3px); }
+  @keyframes count-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .count-up { animation: count-up 0.5s ease-out; }
+</style>
+</head>
+<body class="text-white dot-bg">
+<header class="fixed top-0 left-0 right-0 z-50 bg-zinc-950/80 backdrop-blur-xl border-b border-white/10">
+  <div class="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
+    <a href="hub.html" class="flex items-center gap-3">
+      <img src="static/img/logo.png" alt="数智实训平台" class="h-8 w-8 rounded-lg">
+      <span class="text-lg font-extrabold">个人中心</span>
+    </a>
+    <div class="flex items-center gap-3">
+      <a href="hub.html" class="text-sm text-slate-400 hover:text-white" id="back-link">← 返回</a>
+      <button class="px-3 py-1.5 text-xs text-slate-400 hover:text-red-400 border border-white/10 rounded-lg" onclick="API.logout()">退出</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-2xl mx-auto px-6 pt-28 pb-16">
+
+  <!-- 用户信息卡片 -->
+  <div class="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-6 mb-6 shadow-[0_0_40px_rgba(190,242,100,0.15)] relative overflow-hidden">
+    <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle, white 1px, transparent 1px); background-size: 20px 20px;"></div>
+    <div class="relative flex items-center gap-4">
+      <img class="w-16 h-16 rounded-xl object-cover border-2 border-white/20" id="avatar-img" src="" alt="">
+      <div class="flex-1">
+        <div class="text-xl font-extrabold" id="profile-name">—</div>
+        <div class="text-white/70 text-sm" id="profile-username">—</div>
+      </div>
+      <div class="text-right">
+        <div class="text-3xl font-black count-up" id="profile-level">0</div>
+        <div class="text-[10px] text-white/60 uppercase tracking-wider">实训等级</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 统计卡片 -->
+  <div class="grid grid-cols-3 gap-3 mb-6">
+    <div class="stat-card bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-lime-300 count-up" id="stat-completed">0</div>
+      <div class="text-[10px] text-slate-500 uppercase tracking-wider mt-1">完成子任务</div>
+    </div>
+    <div class="stat-card bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-emerald-400 count-up"><span id="stat-hours">0</span><span class="text-sm ml-0.5">分钟</span></div>
+      <div class="text-[10px] text-slate-500 uppercase tracking-wider mt-1">实训时长</div>
+    </div>
+    <div class="stat-card bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-amber-400 count-up" id="stat-rounds">0</div>
+      <div class="text-[10px] text-slate-500 uppercase tracking-wider mt-1">对话轮次</div>
+    </div>
+  </div>
+
+  <!-- 我的课程 -->
+  <div class="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 mb-6">
+    <h3 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+      <iconify-icon class="text-lime-300" icon="lucide:book-marked"></iconify-icon> 我的课程
+    </h3>
+    <div id="courses-list" class="space-y-2">
+      <div class="text-center py-6 text-slate-500 text-sm">加载中...</div>
+    </div>
+  </div>
+
+  <!-- 操作快捷区 -->
+  <div class="grid grid-cols-4 gap-3">
+    <a href="hub.html" class="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:border-lime-400/40 text-center transition">
+      <iconify-icon class="text-lime-300 text-2xl mb-1" icon="lucide:compass"></iconify-icon>
+      <div class="text-[10px] text-slate-400 mt-1">开始实训</div>
+    </a>
+    <a href="hub.html" onclick="document.getElementById('user-menu')?.classList.add('hidden'); return typeof showMyReports==='function'&&showMyReports()" class="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:border-cyan-400/30 text-center transition cursor-pointer">
+      <iconify-icon class="text-cyan-400 text-2xl mb-1" icon="lucide:file-bar-chart"></iconify-icon>
+      <div class="text-[10px] text-slate-400 mt-1">我的报告</div>
+    </a>
+    <button class="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:border-emerald-400/30 text-center transition" onclick="editName()">
+      <iconify-icon class="text-emerald-400 text-2xl mb-1" icon="lucide:pencil"></iconify-icon>
+      <div class="text-[10px] text-slate-400 mt-1">修改名称</div>
+    </button>
+    <button class="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 hover:border-amber-400/30 text-center transition" onclick="API.logout()">
+      <iconify-icon class="text-amber-400 text-2xl mb-1" icon="lucide:log-out"></iconify-icon>
+      <div class="text-[10px] text-slate-400 mt-1">退出登录</div>
+    </button>
+  </div>
+</main>
+
+<script src="static/js/api.js"></script>
+<script>
+var homePage = 'hub.html';
+(function() {
+  var user = API.getCurrentUser();
+  if (!user) { window.location.href = 'login.html'; return; }
+  // 教师回 teacher.html，学生回 hub.html
+  if (user.role === 'teacher') homePage = 'teacher.html';
+  // 更新所有返回链接和"去选课"文字
+  document.querySelectorAll('a[href="hub.html"]').forEach(function(a) { a.href = homePage; });
+  var backLink = document.getElementById('back-link');
+  if (backLink && homePage === 'teacher.html') backLink.innerText = '← 返回管理';
+  document.getElementById('profile-name').innerText = user.display_name || user.username || (user.role === 'teacher' ? '教师' : '学生');
+  document.getElementById('profile-username').innerText = '@' + (user.username || '—');
+  if (user.avatar_url) document.getElementById('avatar-img').src = user.avatar_url;
+  else document.getElementById('avatar-img').src = 'https://modao.cc/agent-py/media/generated_images/2026-06-26/a8854783ac184603b89311d2a4851970.jpg';
+})();
+
+function setNum(id, v) {
+  var el = document.getElementById(id);
+  if (el) el.innerText = (v === undefined || v === null || isNaN(v)) ? 0 : Number(v);
+}
+
+function loadStats() {
+  setNum('stat-completed', 0); setNum('stat-hours', 0); setNum('stat-rounds', 0); setNum('profile-level', 0);
+  // 并行拉取课程列表 + 个人信息统计
+  Promise.all([
+    API.getCourses('student').catch(function(){ return { courses: [] }; }),
+    apiFetch('/auth/profile').catch(function(){ return {}; })
+  ]).then(function(results) {
+    var r = results[0];
+    var profile = results[1];
+    var courses = (r && r.courses) ? r.courses : (Array.isArray(r) ? r : []);
+    var completed = 0, rounds = (profile.total_rounds || 0), hours = (profile.total_hours || 0), html = '';
+    courses.slice(0, 8).forEach(function(c) {
+      var pct = c.progress_percent || 0;
+      var color = pct >= 100 ? 'bg-emerald-500' : pct > 60 ? 'bg-lime-400' : pct > 0 ? 'bg-amber-500' : 'bg-slate-600';
+      completed += Math.round((pct / 100) * (c.subtask_count || 0));
+      html += '<a href="main.html?course_id='+(c.id||0)+'" class="flex items-center gap-3 p-2.5 bg-white/[0.02] hover:bg-white/[0.06] rounded-lg transition"><div class="flex-1 min-w-0"><div class="text-xs font-semibold truncate">'+c.name+'</div><div class="w-full h-1 bg-white/10 rounded-full mt-1"><div class="h-full '+color+'" style="width:'+pct+'%"></div></div></div><span class="text-[10px] text-slate-500">'+pct+'%</span></a>';
+    });
+    document.getElementById('courses-list').innerHTML = html || '<div class="text-center py-6 text-slate-500 text-sm">暂无课程，<a href=\"hub.html\" class=\"text-lime-300 hover:underline\">去选课</a></div>';
+    setNum('stat-completed', completed);
+    setNum('stat-rounds', rounds);
+    setNum('stat-hours', Math.round(hours * 10) / 10);
+    setNum('profile-level', Math.min(99, Math.floor(completed / 5) + 1));
+  }).catch(function() {
+    document.getElementById('courses-list').innerHTML = '<div class="text-center py-6 text-slate-500 text-sm">加载失败</div>';
+  });
+}
+// 初始加载 & 每10秒刷新
+loadStats();
+setInterval(loadStats, 10000);
+
+function editName() {
+  var name = prompt('输入新显示名称：', document.getElementById('profile-name').innerText);
+  if (name && name.trim()) {
+    API.updateProfile(name.trim()).then(function() {
+      document.getElementById('profile-name').innerText = name.trim();
+      if (typeof toast !== 'undefined') toast('名称已更新','success');
+    }).catch(function(e) { alert('保存失败: ' + e.message); });
+  }
+}
+</script>
+</body>
+</html>

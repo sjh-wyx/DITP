@@ -1,0 +1,261 @@
+"""学习进度路由 — 完整实现"""
+from flask import Blueprint, request, jsonify
+from database import db
+from models import TaskProgress
+from datetime import datetime
+from routes.auth import token_required
+
+progress_bp = Blueprint('progress', __name__)
+
+
+@progress_bp.route('/<int:course_id>', methods=['GET'])
+@token_required
+def get_progress(current_user, course_id):
+    """获取当前学生在某课程的进度"""
+    from models import Subtask
+    subtasks = Subtask.query.filter_by(course_id=course_id).order_by(Subtask.order_index).all()
+    total = len(subtasks)
+
+    # 查询所有子任务的状态
+    all_progress = TaskProgress.query.filter(
+        TaskProgress.student_id == current_user.id,
+        TaskProgress.subtask_id.in_([s.id for s in subtasks])
+    ).all()
+    progress_map = {p.subtask_id: p.status for p in all_progress}
+
+    # 构建 subtask_statuses: {id: 'pending'|'in_progress'|'completed'}
+    subtask_statuses = {}
+    completed = 0
+    current_idx = 0
+    for i, st in enumerate(subtasks):
+        status = progress_map.get(st.id, 'pending')
+        subtask_statuses[str(st.id)] = status
+        if status == 'completed':
+            completed += 1
+        elif status == 'in_progress' and current_idx == 0:
+            current_idx = i
+
+    # 如果没有进行中的，指向第一个未完成的
+    if current_idx == 0:
+        for i, st in enumerate(subtasks):
+            if progress_map.get(st.id, 'pending') != 'completed':
+                current_idx = i
+                break
+
+    return jsonify({
+        'completed': completed,
+        'total': total,
+        'subtask_statuses': subtask_statuses,
+        'current_subtask_index': current_idx
+    })
+
+
+@progress_bp.route('/start', methods=['POST'])
+@token_required
+def start_subtask(current_user):
+    """开始一个子任务"""
+    data = request.get_json()
+    from sqlalchemy.exc import IntegrityError
+    try:
+        existing = TaskProgress.query.filter_by(
+            student_id=current_user.id,
+            subtask_id=data['subtask_id']
+        ).first()
+        if existing:
+            if existing.status == 'completed':
+                # 已完成任务不允许再开始，防状态回退导致耗时虚增（2026-08-28）
+                return jsonify({'message': '已完成，无需开始'})
+            if existing.started_at is None:
+                existing.started_at = datetime.utcnow()  # 已有开始时间不重置（2026-08-26 修复丢时长）
+            existing.status = 'in_progress'
+        else:
+            tp = TaskProgress(
+                student_id=current_user.id,
+                subtask_id=data['subtask_id'],
+                status='in_progress',
+                started_at=datetime.utcnow(),
+            )
+            db.session.add(tp)
+        db.session.commit()
+    except IntegrityError:
+        # 并发唯一键冲突：记录已被并发创建，转更新（2026-08-27 防重复）
+        db.session.rollback()
+        existing = TaskProgress.query.filter_by(
+            student_id=current_user.id,
+            subtask_id=data['subtask_id']
+        ).first()
+        if existing:
+            if existing.status != 'completed':
+                if existing.started_at is None:
+                    existing.started_at = datetime.utcnow()
+                existing.status = 'in_progress'
+                db.session.commit()
+    return jsonify({'message': '已开始'})
+
+
+@progress_bp.route('/complete', methods=['POST'])
+@token_required
+def complete_subtask(current_user):
+    """完成一个子任务"""
+    data = request.get_json()
+    from sqlalchemy.exc import IntegrityError
+    try:
+        tp = TaskProgress.query.filter_by(
+            student_id=current_user.id,
+            subtask_id=data['subtask_id']
+        ).first()
+        if tp:
+            if tp.started_at is None:
+                # 兜底：同课程前序任务完成时间；无前序用当前时间（2026-08-26）
+                from models import Subtask as _Subtask
+                cur = _Subtask.query.get(tp.subtask_id)
+                prev = None
+                if cur:
+                    prev = (TaskProgress.query
+                            .join(_Subtask, TaskProgress.subtask_id == _Subtask.id)
+                            .filter(TaskProgress.student_id == current_user.id,
+                                    TaskProgress.completed_at.isnot(None),
+                                    _Subtask.course_id == cur.course_id,
+                                    _Subtask.order_index < cur.order_index)
+                            .order_by(_Subtask.order_index.desc()).first())
+                tp.started_at = (prev.completed_at if prev and prev.completed_at else datetime.utcnow())
+            if tp.status != 'completed':
+                tp.completed_at = datetime.utcnow()  # 仅首次完成记录时间（2026-08-28 防重复完成刷新耗时）
+            tp.status = 'completed'
+        else:
+            # 记录不存在：首次直接完成，补 started_at 兜底（前序任务完成时间/当前时间，2026-08-28）
+            from models import Subtask as _Subtask
+            _cur = _Subtask.query.get(data['subtask_id'])
+            _prev = None
+            if _cur:
+                _prev = (TaskProgress.query
+                         .join(_Subtask, TaskProgress.subtask_id == _Subtask.id)
+                         .filter(TaskProgress.student_id == current_user.id,
+                                 TaskProgress.completed_at.isnot(None),
+                                 _Subtask.course_id == _cur.course_id,
+                                 _Subtask.order_index < _cur.order_index)
+                         .order_by(_Subtask.order_index.desc()).first())
+            _start = (_prev.completed_at if _prev and _prev.completed_at else datetime.utcnow())
+            tp = TaskProgress(
+                student_id=current_user.id,
+                subtask_id=data['subtask_id'],
+                status='completed',
+                started_at=_start,
+                completed_at=datetime.utcnow(),
+            )
+            db.session.add(tp)
+        db.session.commit()
+    except IntegrityError:
+        # 并发唯一键冲突：记录已被并发创建，转更新（2026-08-27 防重复）
+        db.session.rollback()
+        tp2 = TaskProgress.query.filter_by(
+            student_id=current_user.id,
+            subtask_id=data['subtask_id']
+        ).first()
+        if tp2:
+            if tp2.status != 'completed':
+                tp2.completed_at = datetime.utcnow()
+            tp2.status = 'completed'
+            db.session.commit()
+    _recycle_if_course_done(current_user, data['subtask_id'])
+    return jsonify({'message': '已完成'})
+
+
+def _recycle_if_course_done(current_user, subtask_id):
+    """该课程全部完成 → 回收该生实训容器（失败绝不影响完成动作）。"""
+    try:
+        from models import Subtask
+        from docker_api import cleanup_completed
+        st = Subtask.query.get(subtask_id)
+        if not st:
+            return
+        removed, was_complete, note = cleanup_completed(current_user.id, st.course_id)
+        if not was_complete:
+            return
+        print(f'[PROGRESS] 课程 {st.course_id} 已完成 student={current_user.id} 回收={removed}', flush=True)
+        # 通知前端（socketio 在 app.py 里创建，惰性导入避免循环依赖）
+        from app import socketio
+        socketio.emit('terminal_notice',
+                      {'message': note, 'course_id': st.course_id, 'session_id': 0},
+                      room=str(current_user.id))
+    except Exception as exc:
+        print(f'[PROGRESS] 容器回收跳过: {exc}', flush=True)
+
+@progress_bp.route('/training_time', methods=['GET'])
+@token_required
+def get_training_time(current_user):
+    """获取学生的实训时长（秒）和当前会话起始时间，支持按课程过滤"""
+    from models import Subtask
+    course_id = request.args.get('course_id', type=int)
+    query = TaskProgress.query.filter_by(student_id=current_user.id)
+    if course_id:
+        subtask_ids = [s.id for s in Subtask.query.filter_by(course_id=course_id).all()]
+        query = query.filter(TaskProgress.subtask_id.in_(subtask_ids))
+    records = query.all()
+    total_seconds = 0
+    current_started_at = None
+    _session_reset = False
+    from models import Subtask as _Subtask
+    _sub_cache = {}
+    for r in records:
+        start = r.started_at
+        if start is None and r.completed_at:
+            # 统计兜底：NULL 开始时间用同课程前序任务完成时间（2026-08-26）
+            cur = _sub_cache.get(r.subtask_id) or _Subtask.query.get(r.subtask_id)
+            _sub_cache[r.subtask_id] = cur
+            if cur:
+                prev = (TaskProgress.query
+                        .join(_Subtask, TaskProgress.subtask_id == _Subtask.id)
+                        .filter(TaskProgress.student_id == current_user.id,
+                                TaskProgress.completed_at.isnot(None),
+                                _Subtask.course_id == cur.course_id,
+                                _Subtask.order_index < cur.order_index)
+                        .order_by(_Subtask.order_index.desc()).first())
+                if prev and prev.completed_at:
+                    start = prev.completed_at
+        if start and r.completed_at:
+            delta = (r.completed_at - start).total_seconds()
+            total_seconds += max(0, int(delta))
+        if r.status == 'in_progress' and start:
+            now = datetime.utcnow()
+            if (now - start).total_seconds() > 1800:  # 会话超时30分钟：退出前端后不计时（2026-08-26）
+                r.started_at = now
+                start = now
+                _session_reset = True
+            current_started_at = start.isoformat() + 'Z'  # UTC 标记，修前端时区解析（2026-08-26）
+            elapsed = (now - start).total_seconds()
+            total_seconds += max(0, int(elapsed))
+    if _session_reset:
+        db.session.commit()
+    return jsonify({
+        'total_seconds': total_seconds,
+        'current_started_at': current_started_at
+    })
+
+
+@progress_bp.route('/reset', methods=['POST'])
+@token_required
+def reset_course_progress(current_user):
+    """重新开始本课程：删除该学生该课程全部进度记录（已生成报告保留）"""
+    data = request.get_json() or {}
+    course_id = data.get('course_id')
+    if not course_id:
+        return jsonify({'error': '缺少课程ID'}), 400
+    from models import Subtask
+    subtask_ids = [s.id for s in Subtask.query.filter_by(course_id=course_id).all()]
+    if subtask_ids:
+        TaskProgress.query.filter(
+            TaskProgress.student_id == current_user.id,
+            TaskProgress.subtask_id.in_(subtask_ids)
+        ).delete(synchronize_session=False)
+        db.session.commit()
+    return jsonify({'message': '已重置，可重新开始'})
+
+
+@progress_bp.route('/terminal_context', methods=['GET'])
+@token_required
+def get_terminal_context_route(current_user):
+    """获取学生终端上下文（供工作流代码节点调用）"""
+    from terminal_ws.terminal import get_terminal_context
+    ctx = get_terminal_context(current_user.id)
+    return jsonify({'context': ctx})
